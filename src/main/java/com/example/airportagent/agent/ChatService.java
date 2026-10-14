@@ -18,7 +18,7 @@ import java.util.UUID;
 
 /**
  * One chat turn: ask the LLM, check the numbers of the answer, ask again one time, then use a template answer.
- * The LLM chooses tools and writes the text. It does not calculate (DESIGN.md, section 8).
+ * The LLM chooses tools and writes the text. It does not calculate (docs/DESIGN-full.md, section 8).
  */
 @Service
 public class ChatService {

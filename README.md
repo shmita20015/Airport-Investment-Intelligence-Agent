@@ -7,7 +7,7 @@ A chat agent for US airports. It helps to find where an investment in terminal c
 - **A number check** compares the numbers of each answer with the tool results. If a number is not in the results, the agent asks again, and then shows the raw results.
 - **A REST API** gives the same numbers with no LLM.
 
-The full design (scoring method, trade-offs, assumptions, limits, where AI is used) is in [`DESIGN.md`](DESIGN.md).
+The full design (scoring method, trade-offs, assumptions, limits, where AI is used) is in [`DESIGN.md`](DESIGN.md) (2 pages). The long version with all assumptions, limits and data checks is [`docs/DESIGN-full.md`](docs/DESIGN-full.md).
 
 ## Requirements
 - Java 21 or later

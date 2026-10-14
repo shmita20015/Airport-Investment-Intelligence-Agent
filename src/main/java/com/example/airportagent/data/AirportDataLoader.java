@@ -17,9 +17,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 /** Reads the CSV files that scripts/prepare_data.py wrote. It saves facts only. It calculates no score. */
@@ -34,12 +34,12 @@ public final class AirportDataLoader {
             airports.put(code, new Airport(code, row.get("faa_id"), row.get("name"), row.get("city"),
                     row.get("state"), Region.fromText(row.get("region")), number(row.get("lat")).orElse(Double.NaN),
                     number(row.get("lon")).orElse(Double.NaN),
-                    (int) number(row.get("runway_count")).orElse(0), HubClass.fromFaaCode(row.get("hub_class"))));
+                    integer(row.get("runway_count")), HubClass.fromFaaCode(row.get("hub_class"))));
         }
 
         Map<String, TrafficRow> traffic = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "traffic.csv")) {
-            traffic.put(row.get("iata"), new TrafficRow(row.get("iata"), (int) number(row.get("year")).orElse(0),
+            traffic.put(row.get("iata"), new TrafficRow(row.get("iata"), integer(row.get("year")),
                     number(row.get("pax")).orElse(0), number(row.get("seats")).orElse(0),
                     number(row.get("departures_pax")).orElse(0), number(row.get("departures_cargo")).orElse(0)));
         }
@@ -47,13 +47,13 @@ public final class AirportDataLoader {
         Map<String, List<BucketRow>> buckets = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "distance_buckets.csv")) {
             buckets.computeIfAbsent(row.get("iata"), key -> new ArrayList<>()).add(new BucketRow(row.get("iata"),
-                    (int) number(row.get("bucket_min_miles")).orElse(0),
+                    integer(row.get("bucket_min_miles")),
                     number(row.get("departures_pax")).orElse(0), number(row.get("departures_cargo")).orElse(0)));
         }
 
         Map<String, OntimeRow> ontime = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "ontime.csv")) {
-            ontime.put(row.get("iata"), new OntimeRow(row.get("iata"), (int) number(row.get("year")).orElse(0),
+            ontime.put(row.get("iata"), new OntimeRow(row.get("iata"), integer(row.get("year")),
                     (long) number(row.get("flights")).orElse(0), number(row.get("delay15_rate")),
                     number(row.get("cancel_rate")), number(row.get("avg_taxi_out_min"))));
         }
@@ -61,12 +61,12 @@ public final class AirportDataLoader {
         Map<String, EnplanementRow> enplanements = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "enplanements.csv")) {
             enplanements.put(row.get("iata"), new EnplanementRow(row.get("iata"), whole(row.get("enpl_cy23")),
-                    whole(row.get("enpl_cy24")), whole(row.get("enpl_cy25")), rank(row.get("faa_rank_cy25"))));
+                    whole(row.get("enpl_cy24")), whole(row.get("enpl_cy25"))));
         }
 
         Map<String, String> aliases = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "aliases.csv")) {
-            aliases.put(row.get("alias").trim().toLowerCase(), row.get("iata").trim().toUpperCase());
+            aliases.put(row.get("alias").trim().toLowerCase(Locale.ROOT), row.get("iata").trim().toUpperCase(Locale.ROOT));
         }
 
         return new AirportDataset(Map.copyOf(airports), Map.copyOf(traffic), Map.copyOf(buckets),
@@ -97,8 +97,8 @@ public final class AirportDataLoader {
         return value.isPresent() ? OptionalLong.of((long) value.getAsDouble()) : OptionalLong.empty();
     }
 
-    private static OptionalInt rank(String text) {
-        OptionalDouble value = number(text);
-        return value.isPresent() ? OptionalInt.of((int) value.getAsDouble()) : OptionalInt.empty();
+    /** A whole number. An empty text gives 0. */
+    private static int integer(String text) {
+        return (int) number(text).orElse(0);
     }
 }

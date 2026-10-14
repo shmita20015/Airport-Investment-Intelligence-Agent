@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * The airports that the app ranks: at least the minimum enplanements in the latest year (DESIGN.md, section 6.6).
+ * The airports that the app ranks: at least the minimum enplanements in the latest year (docs/DESIGN-full.md, section 6.6).
  * The percentiles use only these airports as peers.
  */
 @Component

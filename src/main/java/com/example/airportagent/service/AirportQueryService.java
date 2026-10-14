@@ -42,11 +42,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * The single facade of the app. The REST API and the agent tools call this class and nothing else.
- * It gives the same numbers to both (DESIGN.md, section 4.3). It has no AI code.
+ * It gives the same numbers to both (docs/DESIGN-full.md, section 4.3). It has no AI code.
  */
 @Service
 public class AirportQueryService {
@@ -66,6 +67,7 @@ public class AirportQueryService {
     private final FaaStatusClient liveClient;
     private final ExpertNotes expertNotes;
     private final ScoreCalculator calculator = new ScoreCalculator();
+    private final Snapshot snapshot;
 
     public AirportQueryService(AirportDataset data, MetricsBuilder metrics, ScoringProperties properties,
                                RankedSet rankedSet, EnvelopeFactory envelopes, AirportResolver resolver,
@@ -78,6 +80,7 @@ public class AirportQueryService {
         this.resolver = resolver;
         this.liveClient = liveClient;
         this.expertNotes = expertNotes;
+        this.snapshot = buildSnapshot(data, metrics, properties, rankedSet);
     }
 
     // ------------------------------------------------------------------ name lookup
@@ -108,9 +111,7 @@ public class AirportQueryService {
         }
         int limit = clampTopN(topN);
 
-        Snapshot snapshot = defaultSnapshot();
-        List<AirportMetrics> ranked = snapshot.rankedMetrics(rankedSet);
-        List<Score> national = calculator.rank(ranked, profile.get(), Integer.MAX_VALUE);
+        List<Score> national = calculator.rank(snapshot.ranked(), profile.get(), Integer.MAX_VALUE);
 
         List<RankedItem> items = new ArrayList<>();
         int regionRank = 0;
@@ -149,16 +150,15 @@ public class AirportQueryService {
     // ------------------------------------------------------------------ one airport
 
     public QueryResult<AirportProfileView> airportProfile(String code, String profileName) {
-        Optional<Airport> airport = data.airport(code);
-        if (airport.isEmpty()) {
-            return notInData(code);
-        }
+        return withAirport(code, airport -> airportProfile(airport, profileName));
+    }
+
+    private QueryResult<AirportProfileView> airportProfile(Airport airport, String profileName) {
         Optional<WeightProfile> profile = profileFor(profileName);
         if (profile.isEmpty()) {
             return unknownProfile(profileName);
         }
-        Snapshot snapshot = defaultSnapshot();
-        AirportProfileView view = profileView(airport.get(), snapshot, profile.get());
+        AirportProfileView view = profileView(airport, profile.get());
 
         List<String> missing = new ArrayList<>();
         if (view.score() == null) {
@@ -169,7 +169,7 @@ public class AirportQueryService {
                     + " enplanements. It is not in rankings. The score uses the ranked airports as peers.");
         }
         Envelope envelope = envelopes.build(profile.get().name(),
-                Map.of("airport", airport.get().iata(), "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
+                Map.of("airport", airport.iata(), "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
                 view.score() == null ? Confidence.LOW : view.score().confidence(),
                 List.of(describe(profile.get())),
                 view.score() == null ? List.of() : coverageNotes(List.of(view.score()), false),
@@ -210,8 +210,7 @@ public class AirportQueryService {
             return notInData(String.join(", ", codes));
         }
 
-        Snapshot snapshot = defaultSnapshot();
-        List<AirportProfileView> views = found.stream().map(a -> profileView(a, snapshot, profile.get())).toList();
+        List<AirportProfileView> views = found.stream().map(a -> profileView(a, profile.get())).toList();
 
         List<String> warnings = new ArrayList<>();
         long hubClasses = found.stream().map(Airport::hubClass).distinct().count();
@@ -254,22 +253,22 @@ public class AirportQueryService {
      * @param minMiles the distance limit in statute miles. Empty means the default of the settings.
      */
     public QueryResult<LongHaulView> longHaul(String code, Integer minMiles) {
-        Optional<Airport> airport = data.airport(code);
-        if (airport.isEmpty()) {
-            return notInData(code);
-        }
+        return withAirport(code, airport -> longHaul(airport, minMiles));
+    }
+
+    private QueryResult<LongHaulView> longHaul(Airport airport, Integer minMiles) {
         int limit = minMiles == null ? properties.defaultLongHaulMiles() : minMiles;
         if (limit < 0) {
             return new QueryResult.NotAvailable<>("The distance limit must be zero or more miles.", List.of());
         }
-        if (data.bucketsOf(airport.get().iata()).isEmpty()) {
-            return new QueryResult.NotAvailable<>("The T-100 data has no departures for " + airport.get().iata() + ".",
+        if (data.bucketsOf(airport.iata()).isEmpty()) {
+            return new QueryResult.NotAvailable<>("The T-100 data has no departures for " + airport.iata() + ".",
                     List.of());
         }
-        LongHaulCalculator.Result passenger = metrics.longHaulResult(data, airport.get().iata(), limit, false);
-        LongHaulCalculator.Result withCargo = metrics.longHaulResult(data, airport.get().iata(), limit, true);
+        LongHaulCalculator.Result passenger = metrics.longHaulResult(data, airport.iata(), limit, false);
+        LongHaulCalculator.Result withCargo = metrics.longHaulResult(data, airport.iata(), limit, true);
         double cargoDepartures = withCargo.totalDepartures() - passenger.totalDepartures();
-        LongHaulView view = new LongHaulView(AirportRef.of(airport.get()), data.info().dataYear(), T100_TABLE,
+        LongHaulView view = new LongHaulView(AirportRef.of(airport), data.info().dataYear(), T100_TABLE,
                 limit, passenger.limitUsed(), passenger.limitWasRounded(), boxed(passenger.share()),
                 boxed(withCargo.share()), passenger.totalDepartures(), cargoDepartures,
                 withCargo.totalDepartures() > 0 ? cargoDepartures / withCargo.totalDepartures() : 0);
@@ -285,7 +284,7 @@ public class AirportQueryService {
         }
         uncertainties.add("Flights of foreign airlines are not in the T-100 data.");
         Envelope envelope = envelopes.build(null,
-                Map.of("airport", airport.get().iata(), "minMiles", String.valueOf(passenger.limitUsed()),
+                Map.of("airport", airport.iata(), "minMiles", String.valueOf(passenger.limitUsed()),
                         "table", "T-100 segment, US carriers, domestic and international"),
                 Confidence.HIGH,
                 List.of("A long-haul flight is a departure on a route of at least " + passenger.limitUsed()
@@ -300,16 +299,15 @@ public class AirportQueryService {
 
     /** The unmet demand index. It is a proxy. No public data measures demand that airlines did not serve. */
     public QueryResult<UnmetDemandView> unmetDemand(String code) {
-        Optional<Airport> airport = data.airport(code);
-        if (airport.isEmpty()) {
-            return notInData(code);
-        }
+        return withAirport(code, airport -> unmetDemand(airport));
+    }
+
+    private QueryResult<UnmetDemandView> unmetDemand(Airport airport) {
         WeightProfile profile = properties.unmetDemandProfile();
-        Snapshot snapshot = defaultSnapshot();
-        AirportMetrics airportMetrics = snapshot.all().get(airport.get().iata());
+        AirportMetrics airportMetrics = snapshot.all().get(airport.iata());
         Optional<Score> score = calculator.score(airportMetrics, profile, snapshot.peers());
         if (score.isEmpty()) {
-            return new QueryResult.NotAvailable<>("No data for " + airport.get().iata()
+            return new QueryResult.NotAvailable<>("No data for " + airport.iata()
                     + " to calculate the unmet demand index.", List.of());
         }
         Score value = score.get();
@@ -317,14 +315,14 @@ public class AirportQueryService {
                 .map(c -> String.format(Locale.ROOT, "%s: component value %.1f (percentile), weight %.2f, %.1f points",
                         c.component(), c.componentValue(), c.weight(), c.points()))
                 .toList();
-        Optional<ExpertNotes.Note> note = expertNotes.noteOf(airport.get().iata());
-        UnmetDemandView view = new UnmetDemandView(AirportRef.of(airport.get()), value.value(), "PROXY",
+        Optional<ExpertNotes.Note> note = expertNotes.noteOf(airport.iata());
+        UnmetDemandView view = new UnmetDemandView(AirportRef.of(airport), value.value(), "PROXY",
                 "Index = " + describeWeights(profile) + ". It is a proxy. No public data measures demand that "
                         + "airlines did not serve. The index is not a number of flights or passengers.",
                 value, why, note.map(ExpertNotes.Note::text).orElse(null), note.map(ExpertNotes.Note::source).orElse(null));
 
         Envelope envelope = envelopes.build(profile.name(),
-                Map.of("airport", airport.get().iata(), "label", "PROXY"),
+                Map.of("airport", airport.iata(), "label", "PROXY"),
                 value.confidence(),
                 List.of("The unmet demand index is a proxy: " + describeWeights(profile) + ".",
                         "A high load factor, fast growth and high congestion together suggest that demand is higher than the capacity."),
@@ -337,13 +335,13 @@ public class AirportQueryService {
 
     /** The current FAA status. It is not a score input. */
     public QueryResult<LiveStatusView> liveStatus(String code) {
-        Optional<Airport> airport = data.airport(code);
-        if (airport.isEmpty()) {
-            return notInData(code);
-        }
+        return withAirport(code, airport -> liveStatus(airport));
+    }
+
+    private QueryResult<LiveStatusView> liveStatus(Airport airport) {
         try {
-            LiveStatus status = liveClient.statusOf(airport.get().iata());
-            Envelope envelope = envelopes.build(null, Map.of("airport", airport.get().iata(), "source", "FAA NAS status"),
+            LiveStatus status = liveClient.statusOf(airport.iata());
+            Envelope envelope = envelopes.build(null, Map.of("airport", airport.iata(), "source", "FAA NAS status"),
                     Confidence.HIGH,
                     List.of("The data comes from the FAA National Airspace System status service at the update time "
                             + status.updateTime() + ". The service lists active events only. An airport that is not in the "
@@ -353,7 +351,7 @@ public class AirportQueryService {
                             + "example general aviation). They are not listed.")
                             : List.of(),
                     List.of());
-            return new QueryResult.Ok<>(new LiveStatusView(AirportRef.of(airport.get()), status), envelope);
+            return new QueryResult.Ok<>(new LiveStatusView(AirportRef.of(airport), status), envelope);
         } catch (IOException e) {
             return new QueryResult.NotAvailable<>("The live FAA status is not available now (" + e.getMessage() + ").",
                     List.of());
@@ -388,19 +386,21 @@ public class AirportQueryService {
 
     // ------------------------------------------------------------------ helpers
 
-    private record Snapshot(Map<String, AirportMetrics> all, Percentiles peers) {
-        List<AirportMetrics> rankedMetrics(RankedSet rankedSet) {
-            return all.values().stream().filter(m -> rankedSet.contains(m.iata())).toList();
-        }
-    }
+    /** The KPIs of all airports and the percentiles of the ranked set. The data does not change at run time. */
+    private record Snapshot(Map<String, AirportMetrics> all, List<AirportMetrics> ranked, Percentiles peers) {}
 
-    private Snapshot defaultSnapshot() {
-        Map<String, AirportMetrics> all = metrics.buildAll(data, properties.defaultLongHaulMiles(), false);
+    private static Snapshot buildSnapshot(AirportDataset data, MetricsBuilder metrics, ScoringProperties properties,
+                                          RankedSet rankedSet) {
+        Map<String, AirportMetrics> all = metrics.buildAll(data, properties.defaultLongHaulMiles());
         List<AirportMetrics> ranked = all.values().stream().filter(m -> rankedSet.contains(m.iata())).toList();
-        return new Snapshot(all, Percentiles.of(ranked));
+        return new Snapshot(all, ranked, Percentiles.of(ranked));
     }
 
-    private AirportProfileView profileView(Airport airport, Snapshot snapshot, WeightProfile profile) {
+    private <T> QueryResult<T> withAirport(String code, Function<Airport, QueryResult<T>> action) {
+        return data.airport(code).map(action).orElseGet(() -> notInData(code));
+    }
+
+    private AirportProfileView profileView(Airport airport, WeightProfile profile) {
         AirportMetrics airportMetrics = snapshot.all().get(airport.iata());
         Map<Component, Double> components = new EnumMap<>(Component.class);
         components.putAll(calculator.componentValues(airportMetrics, snapshot.peers()));
@@ -410,9 +410,9 @@ public class AirportQueryService {
         for (Kpi kpi : Kpi.values()) {
             MetricValue value = airportMetrics.kpi(kpi);
             kpis.add(switch (value) {
-                case MetricValue.Direct d -> new KpiView(kpi, d.value(), percentile(snapshot, kpi, d.value()),
+                case MetricValue.Direct d -> new KpiView(kpi, d.value(), percentile(kpi, d.value()),
                         "DIRECT", d.source(), null);
-                case MetricValue.Proxy p -> new KpiView(kpi, p.value(), percentile(snapshot, kpi, p.value()),
+                case MetricValue.Proxy p -> new KpiView(kpi, p.value(), percentile(kpi, p.value()),
                         "PROXY", p.source(), "Proxy for: " + p.proxyFor());
                 case MetricValue.Missing m -> new KpiView(kpi, null, null, "MISSING", null, m.reason());
             });
@@ -421,7 +421,7 @@ public class AirportQueryService {
                 score, components, kpis);
     }
 
-    private static Double percentile(Snapshot snapshot, Kpi kpi, double value) {
+    private Double percentile(Kpi kpi, double value) {
         OptionalDouble percentile = snapshot.peers().rank(kpi, value);
         return percentile.isPresent() ? percentile.getAsDouble() : null;
     }
@@ -486,11 +486,7 @@ public class AirportQueryService {
     }
 
     private static String describeWeights(WeightProfile profile) {
-        Map<String, Double> sorted = new LinkedHashMap<>();
-        profile.weights().entrySet().stream()
-                .sorted(Map.Entry.<Component, Double>comparingByValue().reversed().thenComparing(e -> e.getKey().name()))
-                .forEach(e -> sorted.put(e.getKey().name().toLowerCase(Locale.ROOT), e.getValue()));
-        return sorted.entrySet().stream()
+        return weightsOf(profile).entrySet().stream()
                 .map(e -> String.format(Locale.ROOT, "%.2f x %s", e.getValue(), e.getKey()))
                 .collect(Collectors.joining(" + "));
     }

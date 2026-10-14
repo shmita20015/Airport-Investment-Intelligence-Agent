@@ -1,7 +1,6 @@
 package com.example.airportagent.data;
 
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 /** Rows of the data files. A value that is not in the file is empty. It is never zero. */
@@ -21,8 +20,7 @@ public final class Rows {
                             OptionalDouble cancelRate, OptionalDouble avgTaxiOutMin) {}
 
     /** FAA enplanements of an airport. */
-    public record EnplanementRow(String iata, OptionalLong cy23, OptionalLong cy24, OptionalLong cy25,
-                                 OptionalInt faaRankCy25) {}
+    public record EnplanementRow(String iata, OptionalLong cy23, OptionalLong cy24, OptionalLong cy25) {}
 
     /** Facts about the data files, from manifest.json. */
     public record DatasetInfo(int dataYear, String generated) {}

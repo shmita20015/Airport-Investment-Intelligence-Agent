@@ -26,10 +26,6 @@ public final class ExpertNotes {
         return new ExpertNotes(notes);
     }
 
-    public static ExpertNotes of(Map<String, Note> notes) {
-        return new ExpertNotes(notes);
-    }
-
     public Optional<Note> noteOf(String airportCode) {
         return Optional.ofNullable(notes.get(airportCode));
     }

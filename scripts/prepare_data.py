@@ -2,7 +2,7 @@
 
 Usage:  python -I scripts/prepare_data.py [--year 2025] [--raw raw] [--out src/main/resources/data]
 
-Sources (see DESIGN.md, section 5):
+Sources (see docs/DESIGN-full.md, section 5):
   OurAirports airports.csv and runways.csv, FAA enplanement files (xlsx), BTS T-100 Segment (US carriers),
   BTS On-Time Performance (12 monthly files).
 
@@ -185,7 +185,7 @@ def number(text):
 # ---------------------------------------------------------------- aggregation
 
 def aggregate_t100(path):
-    """Add up T-100 rows by origin. Rules: DESIGN.md, section 5.5."""
+    """Add up T-100 rows by origin. Rules: docs/DESIGN-full.md, section 5.5."""
     traffic = defaultdict(lambda: {"pax": 0.0, "seats": 0.0, "dep_pax": 0.0, "dep_cargo": 0.0})
     buckets = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))
     rows = used = 0
@@ -239,7 +239,7 @@ def aggregate_ontime(paths):
 # ---------------------------------------------------------------- joins
 
 class AirportIndex:
-    """Match source codes to the OurAirports master record (DESIGN.md, section 5.6)."""
+    """Match source codes to the OurAirports master record (docs/DESIGN-full.md, section 5.6)."""
 
     def __init__(self, airports, aliases):
         self.by_iata, self.by_local = {}, {}

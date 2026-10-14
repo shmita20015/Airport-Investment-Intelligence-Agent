@@ -28,7 +28,7 @@ airport:
         growth: 0.25
         load_factor: 0.25
         scale: 0.15
-    # Unmet demand is a proxy index. See DESIGN.md, section 6.8.
+    # Unmet demand is a proxy index. See docs/DESIGN-full.md, section 6.8.
     unmet-demand:
       load_factor: 0.40
       growth: 0.30

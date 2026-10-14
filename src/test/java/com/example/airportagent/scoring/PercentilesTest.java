@@ -55,7 +55,6 @@ class PercentilesTest {
                 airport("B", 1, Kpi.GROWTH, 20),
                 noGrowth));
 
-        assertThat(p.peerCount(Kpi.GROWTH)).isEqualTo(2);
         assertThat(p.rank(Kpi.GROWTH, 20).getAsDouble()).isEqualTo(75.0);
     }
 

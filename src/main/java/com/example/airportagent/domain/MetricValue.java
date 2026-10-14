@@ -25,8 +25,4 @@ public sealed interface MetricValue {
             case Missing m -> OptionalDouble.empty();
         };
     }
-
-    default boolean isAvailable() {
-        return !(this instanceof Missing);
-    }
 }

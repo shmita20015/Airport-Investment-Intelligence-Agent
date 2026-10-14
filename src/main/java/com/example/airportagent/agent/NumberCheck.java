@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 
 /**
  * Finds numbers in an answer that no tool result contains. The LLM must not calculate or invent numbers.
- * The check finds numbers only. It does not find a wrong claim in words (DESIGN.md, section 8.7).
+ * The check finds numbers only. It does not find a wrong claim in words (docs/DESIGN-full.md, section 8.7).
  */
 public final class NumberCheck {
 

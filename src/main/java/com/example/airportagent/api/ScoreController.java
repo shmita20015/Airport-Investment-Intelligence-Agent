@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * The REST interface of the engine. It uses no LLM. The chat tools call the same service,
- * so both give the same numbers (DESIGN.md, section 4.3).
+ * so both give the same numbers (docs/DESIGN-full.md, section 4.3).
  */
 @RestController
 @RequestMapping("/api")

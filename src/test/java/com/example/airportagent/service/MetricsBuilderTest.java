@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
-import java.util.OptionalInt;
 import java.util.OptionalLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,7 +45,7 @@ class MetricsBuilderTest {
                 Map.of("XXX", new OntimeRow("XXX", 2025, 50_000, OptionalDouble.of(0.2), OptionalDouble.of(0.01),
                         OptionalDouble.of(15))),
                 Map.of("XXX", new EnplanementRow("XXX", OptionalLong.of(4_000_000), OptionalLong.of(5_000_000),
-                        OptionalLong.of(6_250_000), OptionalInt.of(40))),
+                        OptionalLong.of(6_250_000))),
                 Map.of(), new DatasetInfo(2025, "test"));
     }
 
@@ -54,7 +53,7 @@ class MetricsBuilderTest {
     void calculatesKpisFromFacts() {
         AirportDataset data = fullDataset();
 
-        AirportMetrics m = builder.build(data, data.airports().get("XXX"), 2500, false);
+        AirportMetrics m = builder.build(data, data.airports().get("XXX"), 2500);
 
         assertThat(m.kpi(Kpi.LOAD_FACTOR).number().getAsDouble()).isCloseTo(0.8, TINY);
         assertThat(m.kpi(Kpi.PAX_PER_DEPARTURE).number().getAsDouble()).isCloseTo(80.0, TINY);
@@ -73,9 +72,9 @@ class MetricsBuilderTest {
         Airport xxx = data.airports().get("XXX");
 
         // Passenger only: 40,000 / 100,000. With cargo: 40,000 / 105,000.
-        assertThat(builder.build(data, xxx, 2500, false).kpi(Kpi.LONG_HAUL_SHARE).number().getAsDouble())
+        assertThat(builder.build(data, xxx, 2500).kpi(Kpi.LONG_HAUL_SHARE).number().getAsDouble())
                 .isCloseTo(0.4, TINY);
-        assertThat(builder.build(data, xxx, 2500, true).kpi(Kpi.LONG_HAUL_SHARE).number().getAsDouble())
+        assertThat(builder.longHaulResult(data, "XXX", 2500, true).share().getAsDouble())
                 .isCloseTo(40_000.0 / 105_000.0, TINY);
     }
 
@@ -87,7 +86,7 @@ class MetricsBuilderTest {
                 Map.of("XXX", List.of(new BucketRow("XXX", 0, 49_997, 0), new BucketRow("XXX", 2500, 3, 0))),
                 Map.of(), Map.of(), Map.of(), new DatasetInfo(2025, "test"));
 
-        MetricValue kpi = builder.build(data, xxx, 2500, false).kpi(Kpi.LONG_HAUL_SHARE);
+        MetricValue kpi = builder.build(data, xxx, 2500).kpi(Kpi.LONG_HAUL_SHARE);
 
         assertThat(kpi.number().getAsDouble()).isZero();
         assertThat(builder.longHaulResult(data, "XXX", 2500, false).share().getAsDouble())
@@ -98,7 +97,7 @@ class MetricsBuilderTest {
     void proxiesAreLabeledAsProxies() {
         AirportDataset data = fullDataset();
 
-        AirportMetrics m = builder.build(data, data.airports().get("XXX"), 2500, false);
+        AirportMetrics m = builder.build(data, data.airports().get("XXX"), 2500);
 
         assertThat(m.kpi(Kpi.LOAD_FACTOR)).isInstanceOf(MetricValue.Proxy.class);
         assertThat(m.kpi(Kpi.OPS_PER_RUNWAY)).isInstanceOf(MetricValue.Proxy.class);
@@ -112,7 +111,7 @@ class MetricsBuilderTest {
         AirportDataset data = new AirportDataset(Map.of("YYY", yyy), Map.of(), Map.of(), Map.of(), Map.of(),
                 Map.of(), new DatasetInfo(2025, "test"));
 
-        AirportMetrics m = builder.build(data, yyy, 2500, false);
+        AirportMetrics m = builder.build(data, yyy, 2500);
 
         for (Kpi kpi : Kpi.values()) {
             assertThat(m.kpi(kpi)).as(kpi.name()).isInstanceOf(MetricValue.Missing.class);
@@ -128,7 +127,7 @@ class MetricsBuilderTest {
                         OptionalDouble.of(30))),
                 Map.of(), Map.of(), new DatasetInfo(2025, "test"));
 
-        MetricValue delay = builder.build(data, zzz, 2500, false).kpi(Kpi.DELAY15_RATE);
+        MetricValue delay = builder.build(data, zzz, 2500).kpi(Kpi.DELAY15_RATE);
 
         assertThat(delay).isInstanceOfSatisfying(MetricValue.Missing.class,
                 missing -> assertThat(missing.reason()).contains("fewer than 2000"));
@@ -139,7 +138,7 @@ class MetricsBuilderTest {
         AirportDataset data = fullDataset();
         Airport noRunways = airport("XXX", 0);
 
-        MetricValue ops = builder.build(data, noRunways, 2500, false).kpi(Kpi.OPS_PER_RUNWAY);
+        MetricValue ops = builder.build(data, noRunways, 2500).kpi(Kpi.OPS_PER_RUNWAY);
 
         assertThat(ops).isInstanceOf(MetricValue.Missing.class);
     }

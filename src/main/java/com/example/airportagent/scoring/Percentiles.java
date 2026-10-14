@@ -3,7 +3,6 @@ package com.example.airportagent.scoring;
 import com.example.airportagent.domain.AirportMetrics;
 import com.example.airportagent.domain.Kpi;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.Map;
@@ -17,7 +16,7 @@ import java.util.OptionalDouble;
  */
 public final class Percentiles {
 
-    private final Map<Kpi, double[]> sortedValues = new EnumMap<>(Kpi.class);
+    private final Map<Kpi, double[]> peerValues = new EnumMap<>(Kpi.class);
 
     private Percentiles() {}
 
@@ -28,50 +27,27 @@ public final class Percentiles {
                     .map(peer -> peer.kpi(kpi).number())
                     .filter(OptionalDouble::isPresent)
                     .mapToDouble(OptionalDouble::getAsDouble)
-                    .sorted()
                     .toArray();
-            result.sortedValues.put(kpi, values);
+            result.peerValues.put(kpi, values);
         }
         return result;
     }
 
     /** The percentile of a value from 0 to 100. Empty if no peer has this KPI. */
     public OptionalDouble rank(Kpi kpi, double value) {
-        double[] sorted = sortedValues.get(kpi);
-        if (sorted.length == 0) {
+        double[] values = peerValues.get(kpi);
+        if (values.length == 0) {
             return OptionalDouble.empty();
         }
-        int below = lowerBound(sorted, value);
-        int belowOrEqual = upperBound(sorted, value);
-        int equal = belowOrEqual - below;
-        return OptionalDouble.of(100.0 * (below + 0.5 * equal) / sorted.length);
-    }
-
-    public int peerCount(Kpi kpi) {
-        return sortedValues.get(kpi).length;
-    }
-
-    /** The number of values that are less than x. */
-    private static int lowerBound(double[] sorted, double x) {
-        int index = Arrays.binarySearch(sorted, x);
-        if (index < 0) {
-            return -index - 1;
+        int below = 0;
+        int equal = 0;
+        for (double peer : values) {
+            if (peer < value) {
+                below++;
+            } else if (peer == value) {
+                equal++;
+            }
         }
-        while (index > 0 && sorted[index - 1] == x) {
-            index--;
-        }
-        return index;
-    }
-
-    /** The number of values that are less than or equal to x. */
-    private static int upperBound(double[] sorted, double x) {
-        int index = Arrays.binarySearch(sorted, x);
-        if (index < 0) {
-            return -index - 1;
-        }
-        while (index < sorted.length - 1 && sorted[index + 1] == x) {
-            index++;
-        }
-        return index + 1;
+        return OptionalDouble.of(100.0 * (below + 0.5 * equal) / values.length);
     }
 }

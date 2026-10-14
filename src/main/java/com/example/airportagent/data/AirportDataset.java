@@ -8,6 +8,7 @@ import com.example.airportagent.data.Rows.TrafficRow;
 import com.example.airportagent.domain.Airport;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,7 +27,7 @@ public record AirportDataset(Map<String, Airport> airports,
                              DatasetInfo info) {
 
     public Optional<Airport> airport(String code) {
-        return Optional.ofNullable(code == null ? null : airports.get(code.trim().toUpperCase()));
+        return Optional.ofNullable(code == null ? null : airports.get(code.trim().toUpperCase(Locale.ROOT)));
     }
 
     public List<BucketRow> bucketsOf(String code) {

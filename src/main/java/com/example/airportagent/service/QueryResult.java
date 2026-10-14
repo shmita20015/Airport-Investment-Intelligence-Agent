@@ -6,7 +6,7 @@ import java.util.List;
 
 /**
  * The result of a service call. A gap in the data is a normal result with a reason.
- * The code never returns an empty value or a guess (DESIGN.md, section 11).
+ * The code never returns an empty value or a guess (docs/DESIGN-full.md, section 11).
  */
 public sealed interface QueryResult<T> {
 

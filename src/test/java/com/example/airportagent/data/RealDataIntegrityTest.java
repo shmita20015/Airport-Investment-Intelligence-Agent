@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Checks the real data files (src/main/resources/data). A gap here would break an example question.
- * The expected values come from the data checks in DESIGN.md, section 21.
+ * The expected values come from the data checks in docs/DESIGN-full.md, section 21.
  */
 class RealDataIntegrityTest {
 
@@ -55,7 +55,7 @@ class RealDataIntegrityTest {
     void theAirportsOfTheExampleQuestionsHaveAllTheFacts() {
         for (String code : KEY_AIRPORTS) {
             Airport airport = data.airport(code).orElseThrow(() -> new AssertionError(code + " is missing"));
-            AirportMetrics metrics = builder.build(data, airport, 2_500, false);
+            AirportMetrics metrics = builder.build(data, airport, 2_500);
             for (Kpi kpi : Kpi.values()) {
                 assertThat(metrics.kpi(kpi)).as(code + " " + kpi).isNotInstanceOf(MetricValue.Missing.class);
             }
@@ -69,7 +69,7 @@ class RealDataIntegrityTest {
 
         assertThat(newEngland).extracting(Airport::iata).contains("BOS", "BDL", "PVD", "PWM", "BTV", "MHT", "BGR");
         for (Airport airport : newEngland) {
-            AirportMetrics metrics = builder.build(data, airport, 2_500, false);
+            AirportMetrics metrics = builder.build(data, airport, 2_500);
             assertThat(airport.runwayCount()).as(airport.iata() + " runways").isPositive();
             for (Kpi kpi : List.of(Kpi.GROWTH, Kpi.LOAD_FACTOR, Kpi.PAX_PER_DEPARTURE, Kpi.OPS_PER_RUNWAY,
                     Kpi.LONG_HAUL_SHARE)) {
@@ -82,7 +82,7 @@ class RealDataIntegrityTest {
     void newHavenHasTrafficButNoDelayData() {
         Airport hvn = data.airport("HVN").orElseThrow();
 
-        AirportMetrics metrics = builder.build(data, hvn, 2_500, false);
+        AirportMetrics metrics = builder.build(data, hvn, 2_500);
 
         assertThat(metrics.kpi(Kpi.LOAD_FACTOR)).isNotInstanceOf(MetricValue.Missing.class);
         assertThat(metrics.kpi(Kpi.DELAY15_RATE)).isInstanceOf(MetricValue.Missing.class);

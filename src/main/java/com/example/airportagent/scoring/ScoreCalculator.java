@@ -38,11 +38,7 @@ public final class ScoreCalculator {
             double sum = 0;
             int count = 0;
             for (Kpi kpi : component.kpis()) {
-                OptionalDouble raw = airport.kpi(kpi).number();
-                if (raw.isEmpty()) {
-                    continue;
-                }
-                OptionalDouble percentile = peers.rank(kpi, raw.getAsDouble());
+                OptionalDouble percentile = percentileOf(airport, kpi, peers);
                 if (percentile.isPresent()) {
                     sum += percentile.getAsDouble();
                     count++;
@@ -72,7 +68,7 @@ public final class ScoreCalculator {
             totalWeight += weight;
             int available = 0;
             for (Kpi kpi : component.kpis()) {
-                if (airport.kpi(kpi).number().isPresent() && peers.peerCount(kpi) > 0) {
+                if (percentileOf(airport, kpi, peers).isPresent()) {
                     available++;
                 } else {
                     missingKpis.add(kpi);
@@ -131,6 +127,12 @@ public final class ScoreCalculator {
                 .thenComparing(e -> e.score().iata()));
 
         return entries.stream().limit(Math.max(topN, 0)).map(Entry::score).toList();
+    }
+
+    /** The percentile of a KPI of the airport. Empty if the airport has no value or no peer has this KPI. */
+    private static OptionalDouble percentileOf(AirportMetrics airport, Kpi kpi, Percentiles peers) {
+        OptionalDouble raw = airport.kpi(kpi).number();
+        return raw.isPresent() ? peers.rank(kpi, raw.getAsDouble()) : OptionalDouble.empty();
     }
 
     private static boolean usesProxy(AirportMetrics airport, Component component) {

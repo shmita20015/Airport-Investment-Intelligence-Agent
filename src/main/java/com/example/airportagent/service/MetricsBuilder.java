@@ -18,9 +18,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.function.Function;
 
 /**
- * Calculates the raw KPIs of each airport from the saved facts (DESIGN.md, section 6.1).
+ * Calculates the raw KPIs of each airport from the saved facts (docs/DESIGN-full.md, section 6.1).
  * It does not rank. A KPI that cannot be calculated is Missing, with a reason. It is never zero.
  */
 @Component
@@ -29,6 +30,7 @@ public class MetricsBuilder {
     static final String ONTIME = "BTS On-Time Performance";
     static final String T100 = "BTS T-100 Segment";
     static final String FAA = "FAA enplanements";
+    private static final String NO_DEPARTURES = "no passenger departures in the T-100 data";
 
     /**
      * A long-haul share below this value is set to 0 in the KPI. A few positioning flights would otherwise
@@ -46,31 +48,31 @@ public class MetricsBuilder {
      * The KPIs of all airports in the data set.
      *
      * @param longHaulMiles distance limit of the long-haul share
-     * @param includeCargo  true to count cargo flights in the long-haul share
      */
-    public Map<String, AirportMetrics> buildAll(AirportDataset data, int longHaulMiles, boolean includeCargo) {
+    public Map<String, AirportMetrics> buildAll(AirportDataset data, int longHaulMiles) {
         Map<String, AirportMetrics> result = new LinkedHashMap<>();
         for (Airport airport : data.airports().values()) {
-            result.put(airport.iata(), build(data, airport, longHaulMiles, includeCargo));
+            result.put(airport.iata(), build(data, airport, longHaulMiles));
         }
         return result;
     }
 
-    public AirportMetrics build(AirportDataset data, Airport airport, int longHaulMiles, boolean includeCargo) {
+    /** The KPIs of one airport. The long-haul share counts passenger flights only. */
+    public AirportMetrics build(AirportDataset data, Airport airport, int longHaulMiles) {
         String code = airport.iata();
         TrafficRow traffic = data.traffic().get(code);
         OntimeRow ontime = data.ontime().get(code);
         EnplanementRow enplanement = data.enplanements().get(code);
 
         Map<Kpi, MetricValue> kpis = new EnumMap<>(Kpi.class);
-        kpis.put(Kpi.DELAY15_RATE, ontimeKpi(ontime, ontime == null ? OptionalDouble.empty() : ontime.delay15Rate()));
-        kpis.put(Kpi.CANCEL_RATE, ontimeKpi(ontime, ontime == null ? OptionalDouble.empty() : ontime.cancelRate()));
-        kpis.put(Kpi.TAXI_OUT_MIN, ontimeKpi(ontime, ontime == null ? OptionalDouble.empty() : ontime.avgTaxiOutMin()));
+        kpis.put(Kpi.DELAY15_RATE, ontimeKpi(ontime, OntimeRow::delay15Rate));
+        kpis.put(Kpi.CANCEL_RATE, ontimeKpi(ontime, OntimeRow::cancelRate));
+        kpis.put(Kpi.TAXI_OUT_MIN, ontimeKpi(ontime, OntimeRow::avgTaxiOutMin));
         kpis.put(Kpi.OPS_PER_RUNWAY, opsPerRunway(traffic, airport.runwayCount()));
         kpis.put(Kpi.GROWTH, growth(enplanement));
         kpis.put(Kpi.LOAD_FACTOR, loadFactor(traffic));
         kpis.put(Kpi.PAX_PER_DEPARTURE, paxPerDeparture(traffic));
-        kpis.put(Kpi.LONG_HAUL_SHARE, longHaul(data, code, longHaulMiles, includeCargo));
+        kpis.put(Kpi.LONG_HAUL_SHARE, longHaul(data, code, longHaulMiles));
         kpis.put(Kpi.ENPLANEMENTS, enplanements(enplanement));
 
         return new AirportMetrics(code, size(enplanement, traffic), kpis);
@@ -85,11 +87,11 @@ public class MetricsBuilder {
         return LongHaulCalculator.share(buckets, limitMiles, includeCargo);
     }
 
-    private MetricValue longHaul(AirportDataset data, String code, int limitMiles, boolean includeCargo) {
+    private MetricValue longHaul(AirportDataset data, String code, int limitMiles) {
         if (data.bucketsOf(code).isEmpty()) {
             return new MetricValue.Missing("no T-100 departures in the data");
         }
-        OptionalDouble share = longHaulResult(data, code, limitMiles, includeCargo).share();
+        OptionalDouble share = longHaulResult(data, code, limitMiles, false).share();
         if (share.isEmpty()) {
             return new MetricValue.Missing("no departures in the T-100 data");
         }
@@ -97,7 +99,7 @@ public class MetricsBuilder {
         return new MetricValue.Direct(value, T100 + " (shares below 1% are set to 0)");
     }
 
-    private MetricValue ontimeKpi(OntimeRow ontime, OptionalDouble value) {
+    private MetricValue ontimeKpi(OntimeRow ontime, Function<OntimeRow, OptionalDouble> column) {
         if (ontime == null) {
             return new MetricValue.Missing("no On-Time data (the airport has no large reporting carrier)");
         }
@@ -105,6 +107,7 @@ public class MetricsBuilder {
             return new MetricValue.Missing("fewer than " + properties.minOntimeFlights()
                     + " On-Time flights in the year (" + ontime.flights() + ")");
         }
+        OptionalDouble value = column.apply(ontime);
         return value.isPresent()
                 ? new MetricValue.Direct(value.getAsDouble(), ONTIME)
                 : new MetricValue.Missing("value not in the On-Time data");
@@ -112,8 +115,8 @@ public class MetricsBuilder {
 
     /** Operations per runway. It assumes that arrivals equal departures, so operations are 2 x departures. */
     private MetricValue opsPerRunway(TrafficRow traffic, int runwayCount) {
-        if (traffic == null || traffic.departuresPax() <= 0) {
-            return new MetricValue.Missing("no passenger departures in the T-100 data");
+        if (noPassengerDepartures(traffic)) {
+            return new MetricValue.Missing(NO_DEPARTURES);
         }
         if (runwayCount <= 0) {
             return new MetricValue.Missing("runway count not known");
@@ -148,11 +151,15 @@ public class MetricsBuilder {
     }
 
     private MetricValue paxPerDeparture(TrafficRow traffic) {
-        if (traffic == null || traffic.departuresPax() <= 0) {
-            return new MetricValue.Missing("no passenger departures in the T-100 data");
+        if (noPassengerDepartures(traffic)) {
+            return new MetricValue.Missing(NO_DEPARTURES);
         }
         return new MetricValue.Proxy(traffic.pax() / traffic.departuresPax(), T100,
                 "terminal strain (size of aircraft)");
+    }
+
+    private static boolean noPassengerDepartures(TrafficRow traffic) {
+        return traffic == null || traffic.departuresPax() <= 0;
     }
 
     /** The size of the airport for ties and the size filter: enplanements of CY25, or T-100 passengers. */

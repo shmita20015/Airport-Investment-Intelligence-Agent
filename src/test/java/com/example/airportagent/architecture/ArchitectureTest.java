@@ -7,7 +7,7 @@ import com.tngtech.archunit.lang.ArchRule;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
-/** These rules make the design claims testable. See DESIGN.md, section 4.2. */
+/** These rules make the design claims testable. See docs/DESIGN-full.md, section 4.2. */
 @AnalyzeClasses(packages = "com.example.airportagent", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
 

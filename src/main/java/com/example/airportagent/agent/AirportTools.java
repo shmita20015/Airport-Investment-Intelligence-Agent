@@ -14,7 +14,7 @@ import java.util.function.Supplier;
 
 /**
  * The tools of the LLM. Each tool calls one method of {@link AirportQueryService}.
- * The LLM chooses the tool and the inputs. Java code calculates every number (DESIGN.md, section 8).
+ * The LLM chooses the tool and the inputs. Java code calculates every number (docs/DESIGN-full.md, section 8).
  */
 @Component
 public class AirportTools {

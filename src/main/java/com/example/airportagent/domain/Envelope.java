@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * The context of a result: what the analyst must know to read the numbers.
- * Each result of the service has an envelope (DESIGN.md, section 9).
+ * Each result of the service has an envelope (docs/DESIGN-full.md, section 9).
  *
  * @param assumptions   the assumptions that apply to this result
  * @param uncertainties data gaps, proxies and the age of the data

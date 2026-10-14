@@ -8,7 +8,7 @@ import java.util.Map;
 
 /**
  * Scoring settings from application.yml. A reviewer can change them without a code change.
- * The weights are heuristics. See DESIGN.md, section 6.4.
+ * The weights are heuristics. See docs/DESIGN-full.md, section 6.4.
  */
 @ConfigurationProperties(prefix = "airport.scoring")
 public record ScoringProperties(

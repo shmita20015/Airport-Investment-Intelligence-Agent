@@ -10,12 +10,11 @@ import org.springframework.stereotype.Component;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 /**
  * Converts a name or a code from the user to an airport of the data set.
- * The code does the matching. The LLM must not guess codes (DESIGN.md, section 8.3).
+ * The code does the matching. The LLM must not guess codes (docs/DESIGN-full.md, section 8.3).
  *
  * <p>The tiers, in order: airport code, alias, city, part of the name. The first tier with a match decides.
  * If a tier has more than one airport, the result is not resolved. The caller must ask the user.
@@ -71,11 +70,6 @@ public class AirportResolver {
         boolean resolved = matches.size() == 1;
         return new QueryResult.Ok<>(new Resolution(query, resolved, resolved ? sorted.get(0) : null,
                 resolved ? List.of() : sorted), envelopes.minimal());
-    }
-
-    /** The airport for a code that an earlier lookup returned. */
-    public Optional<Airport> byCode(String code) {
-        return data.airport(code);
     }
 
     private List<Candidate> tier(String matchedBy, Predicate<Airport> filter) {
