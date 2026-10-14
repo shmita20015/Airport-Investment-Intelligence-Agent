@@ -132,10 +132,10 @@ Example: "Compare LA and Santa Ana congestion."
 
 1. The browser sends the text and a session ID to `/chat`.
 2. `ChatService` sends the text, the chat history and the tool list to the LLM.
-3. The LLM calls `resolveAirport("LA")`. The tool uses the alias table and returns `LAX`.
-4. The LLM calls `resolveAirport("Santa Ana")`. The tool returns `SNA`.
-5. The LLM calls `compareAirports(["LAX","SNA"], "congestion")`.
-6. `AirportQueryService` asks `scoring` for the congestion components. It adds the hub class and the envelope.
+3. The LLM calls `compareAirports(["LA","Santa Ana"], "congestion")`.
+4. `AirportQueryService` resolves each name with `AirportResolver` (alias table: "LA" gives `LAX`, "Santa Ana" gives `SNA`).
+5. If a name matches more than one airport, the tool returns the options. The LLM asks the user.
+6. The service asks `scoring` for the congestion components. It adds the hub class and the envelope.
 7. The tool returns the structured result to the LLM.
 8. The LLM writes the answer from the result.
 9. `NumberCheck` compares each number in the answer with the tool results.
@@ -491,7 +491,6 @@ If the long-haul value is missing, the weights of the other four become 0.30 ÷ 
 
 | Tool | Purpose |
 |---|---|
-| `resolveAirport(text)` | Convert a name or code to an airport. Returns the match, the confidence and alternatives. |
 | `rankAirports(region, profile, topN)` | Rank the ranked set. |
 | `compareAirports(codes, focus)` | Compare two or more airports. |
 | `getAirportProfile(code)` | KPIs, components and the score trace of one airport. |
@@ -501,6 +500,8 @@ If the long-haul value is missing, the weights of the other four become 0.30 ÷ 
 | `getMethodology()` | Weights, limits and scope, for questions about the method. |
 
 Each tool returns a `QueryResult` (section 11.1). Each tool calls one method of `AirportQueryService`.
+
+**Change after the first real LLM run:** the separate `resolveAirport` tool was removed. Each tool takes an airport code or a name, and the service resolves it (`AirportResolver`). Reason: one question about two airports used 5 tool calls (4 were lookups). Now it uses 1. The REST endpoint `/api/resolve` stays. If a name matches more than one airport, the tool returns NOT_AVAILABLE with the options.
 
 ### 8.4 The live API call
 - The `getLiveStatus` tool calls `https://nasstatus.faa.gov/api/airport-status-information`.
@@ -519,7 +520,7 @@ The system prompt says:
 3. Always state the assumptions and the data year when you give a number.
 4. State the profile, the limit and the table that the tool used.
 5. If the user asks about a part that the app cannot answer, answer the other parts. Name the part that you cannot answer.
-6. Always call `resolveAirport` for a name that the user gives.
+6. The tools accept a code or a name. If a name is not unique, ask the user.
 7. Do not give investment advice. Say that the index is a screening tool.
 
 The text of the prompt is in `src/main/resources/prompts/system.txt`. It has 14 rules and a short guide that maps the four example questions to tools.

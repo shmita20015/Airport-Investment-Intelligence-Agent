@@ -7,8 +7,6 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Service;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,7 +29,6 @@ public class ChatService {
     static final String NO_KEY = "not-set";
 
     private final ChatClient client;
-    private final JsonMapper json;
     private final boolean keySet;
     private final Map<String, ToolLog> logs = Collections.synchronizedMap(
             new LinkedHashMap<>(16, 0.75f, true) {
@@ -41,9 +38,8 @@ public class ChatService {
                 }
             });
 
-    public ChatService(ChatClient client, JsonMapper json, @Value("${spring.ai.google.genai.api-key:}") String apiKey) {
+    public ChatService(ChatClient client, @Value("${spring.ai.google.genai.api-key:}") String apiKey) {
         this.client = client;
-        this.json = json;
         this.keySet = !apiKey.isBlank() && !NO_KEY.equals(apiKey);
     }
 
@@ -103,24 +99,14 @@ public class ChatService {
         return log.turnCalls().stream().map(ToolLog.Call::tool).toList();
     }
 
-    /** The answer without the LLM text. It shows the notes and the data of the tool results. */
-    String templateAnswer(ToolLog log) {
+    /** The answer without the LLM text. It shows the raw result of each tool call. */
+    static String templateAnswer(ToolLog log) {
         StringBuilder text = new StringBuilder("I could not check the numbers in my written answer, so I show the "
                 + "results of the tools. Each number below comes from the data.\n");
         for (ToolLog.Call call : log.turnCalls()) {
-            text.append("\n").append(call.tool()).append(": ");
-            JsonNode root = json.readTree(call.json());
-            text.append(root.path("status").asString()).append("\n");
-            if (root.hasNonNull("reason")) {
-                text.append("Reason: ").append(root.path("reason").asString()).append("\n");
-            }
-            for (String field : List.of("assumptions", "uncertainties", "outOfScope")) {
-                for (JsonNode note : root.path("envelope").path(field)) {
-                    text.append("- ").append(field).append(": ").append(note.asString()).append("\n");
-                }
-            }
-            String data = root.path("data").toString();
-            text.append("Data: ").append(data.length() > MAX_DATA_TEXT ? data.substring(0, MAX_DATA_TEXT) + " ..." : data)
+            String result = call.json();
+            text.append("\n").append(call.tool()).append(": ")
+                    .append(result.length() > MAX_DATA_TEXT ? result.substring(0, MAX_DATA_TEXT) + " ..." : result)
                     .append("\n");
         }
         if (log.turnCalls().isEmpty()) {

@@ -56,7 +56,7 @@ A Python script (`scripts/prepare_data.py`) downloads the sources one time and s
 ## 5. Where AI is used (and where it is not)
 - **The LLM does:** read the question and the chat history, choose a tool and its inputs, and write the answer in plain language.
 - **The LLM does not:** calculate, rank, read data files or call public APIs.
-- **Tools:** 8 `@Tool` methods. Each calls one method of `AirportQueryService`. A turn may use 5 tool calls at most.
+- **Tools:** 7 `@Tool` methods. Each calls one method of `AirportQueryService`. A tool accepts an airport code or a name. The engine resolves the name, so the LLM needs no separate lookup call. If a name matches more than one airport, the tool returns the options and the agent asks the user. A turn may use 5 tool calls at most.
 - **Number check:** after the LLM writes an answer, `NumberCheck` looks for numbers that no tool result has. It allows rounding and percentage form. If it finds one, the agent asks again one time. If it fails again, the app shows the raw tool results and sets `verified = false`.
 - **Follow-ups:** the chat memory keeps 20 messages per session. The agent may reuse numbers of earlier tool results.
 - **System prompt:** 14 rules (see `prompts/system.txt`). Examples: use only tool numbers, say when a tool has no data, state assumptions, never give investment advice.
@@ -78,7 +78,7 @@ Each result has an **envelope**: assumptions, uncertainties, what is out of scop
 | Spring AI | Standard tool calling, memory and model change by configuration. | One more framework to learn. |
 | Browser voice | No server cost, no extra dependency. | Chrome and Edge only. |
 
-## 8. Tests (117, no real LLM call)
+## 8. Tests (120, no real LLM call)
 - Scoring: hand-calculated values, ordering, missing data, ties.
 - Real data: the data files are consistent (for example no airport code collisions).
 - Engine and REST API give the same numbers.

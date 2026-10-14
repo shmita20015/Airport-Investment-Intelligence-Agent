@@ -200,7 +200,7 @@ class AirportQueryServiceTest {
     @Test
     void comparisonWithAnUnknownCodeIsPartial() {
         assertThat(service.compare(List.of("LAX", "ZZZ"), "congestion")).isInstanceOfSatisfying(
-                QueryResult.Partial.class, partial -> assertThat(partial.missing()).containsExactly("ZZZ is not in the data"));
+                QueryResult.Partial.class, partial -> assertThat(partial.missing().toString()).contains("ZZZ is not in the data"));
     }
 
     @Test
@@ -336,6 +336,25 @@ class AirportQueryServiceTest {
         assertThat(view.unmetDemandWeights()).containsKeys("load_factor", "growth", "congestion");
         assertThat(view.rankedAirports()).isEqualTo(233);
         assertThat(view.minEnplanements()).isEqualTo(100_000);
+    }
+
+    @Test
+    void theToolsAcceptANameAndACode() {
+        double byCode = ok(service.longHaul("ANC", 2500)).data().sharePassengerOnly();
+
+        assertThat(ok(service.longHaul("Anchorage", 2500)).data().sharePassengerOnly()).isEqualTo(byCode);
+        assertThat(ok(service.compare(List.of("LA", "Santa Ana"), "congestion")).data().airports())
+                .extracting(a -> a.airport().iata()).containsExactly("LAX", "SNA");
+    }
+
+    @Test
+    void aNameWithMoreThanOneAirportAsksTheCallerToChoose() {
+        QueryResult<LongHaulView> result = service.longHaul("Portland", 2500);
+
+        assertThat(result).isInstanceOfSatisfying(QueryResult.NotAvailable.class, na -> {
+            assertThat(na.reason()).contains("more than one airport");
+            assertThat(na.whatIsAvailable().toString()).contains("PWM (").contains("PDX (");
+        });
     }
 
     private String resolved(String text) {

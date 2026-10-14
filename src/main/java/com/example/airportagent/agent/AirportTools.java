@@ -27,14 +27,6 @@ public class AirportTools {
         this.json = json;
     }
 
-    @Tool(description = "Find the airport for a name, a city or a code. Returns the match, how it matched, and other "
-            + "possible airports. Use it when the user gives a name and not a 3-letter code.")
-    public ApiResponse<?> resolveAirport(
-            @ToolParam(description = "Airport name, city or code, for example Santa Ana") String text,
-            ToolContext context) {
-        return run(context, "resolveAirport", () -> service.resolveAirport(text));
-    }
-
     @Tool(description = "Rank US airports by an opportunity score. Use it for questions about the best candidates for "
             + "terminal expansion or investment. The percentiles are national. The region only filters the list.")
     public ApiResponse<?> rankAirports(
@@ -48,7 +40,7 @@ public class AirportTools {
     @Tool(description = "Compare two to six airports. Use focus congestion to compare congestion. Use a profile name "
             + "(terminal or general) to compare the score. Returns the KPIs and percentiles of each airport.")
     public ApiResponse<?> compareAirports(
-            @ToolParam(description = "Airport codes, for example LAX and SNA") List<String> codes,
+            @ToolParam(description = "Airport codes or names, for example LAX and Santa Ana") List<String> codes,
             @ToolParam(description = "congestion, terminal or general. Default congestion", required = false) String focus,
             ToolContext context) {
         return run(context, "compareAirports", () -> service.compare(codes, focus));
@@ -56,35 +48,35 @@ public class AirportTools {
 
     @Tool(description = "All KPIs, component values and the score of one airport, with the source and the data year of each KPI.")
     public ApiResponse<?> getAirportProfile(
-            @ToolParam(description = "Airport code, for example SFO") String code,
+            @ToolParam(description = "Airport code or name, for example SFO or its city name") String airport,
             @ToolParam(description = "Weight profile: terminal or general. Default general", required = false) String profile,
             ToolContext context) {
-        return run(context, "getAirportProfile", () -> service.airportProfile(code, profile));
+        return run(context, "getAirportProfile", () -> service.airportProfile(airport, profile));
     }
 
     @Tool(description = "The share of long-haul departures of one airport. Returns the share of passenger flights and "
             + "the share with cargo flights. There is no standard definition of long-haul. The default limit is 2,500 miles.")
     public ApiResponse<?> getLongHaulShare(
-            @ToolParam(description = "Airport code, for example ANC") String code,
+            @ToolParam(description = "Airport code or name, for example ANC or its city name") String airport,
             @ToolParam(description = "Minimum route distance in statute miles. Default 2500", required = false) Integer minMiles,
             ToolContext context) {
-        return run(context, "getLongHaulShare", () -> service.longHaul(code, minMiles));
+        return run(context, "getLongHaulShare", () -> service.longHaul(airport, minMiles));
     }
 
     @Tool(description = "The unmet demand index of one airport. It is a PROXY built from load factor, growth and congestion. "
             + "No public data counts unserved flights. Returns the parts of the index, so you can explain why.")
     public ApiResponse<?> getUnmetDemandIndex(
-            @ToolParam(description = "Airport code, for example SFO") String code,
+            @ToolParam(description = "Airport code or name, for example SFO or its city name") String airport,
             ToolContext context) {
-        return run(context, "getUnmetDemandIndex", () -> service.unmetDemand(code));
+        return run(context, "getUnmetDemandIndex", () -> service.unmetDemand(airport));
     }
 
     @Tool(description = "The current FAA status of one airport: ground stops, ground delays and closures. "
             + "It does not change any score.")
     public ApiResponse<?> getLiveStatus(
-            @ToolParam(description = "Airport code, for example LAX") String code,
+            @ToolParam(description = "Airport code or name, for example LAX or its city name") String airport,
             ToolContext context) {
-        return run(context, "getLiveStatus", () -> service.liveStatus(code));
+        return run(context, "getLiveStatus", () -> service.liveStatus(airport));
     }
 
     @Tool(description = "The weights of the score, the size limit, the data year and the scope of the app. "

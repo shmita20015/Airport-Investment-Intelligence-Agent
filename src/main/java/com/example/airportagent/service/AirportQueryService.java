@@ -204,7 +204,7 @@ public class AirportQueryService {
         List<Airport> found = new ArrayList<>();
         List<String> unknown = new ArrayList<>();
         for (String code : codes) {
-            data.airport(code).ifPresentOrElse(found::add, () -> unknown.add(code));
+            uniqueAirport(code).ifPresentOrElse(found::add, () -> unknown.add(code));
         }
         if (found.isEmpty()) {
             return notInData(String.join(", ", codes));
@@ -239,7 +239,8 @@ public class AirportQueryService {
                 coverageNotes(scores, false),
                 List.of(EnvelopeFactory.NO_PROFIT));
         if (!unknown.isEmpty()) {
-            return new QueryResult.Partial<>(view, unknown.stream().map(c -> c + " is not in the data").toList(), envelope);
+            return new QueryResult.Partial<>(view,
+                    unknown.stream().map(c -> c + " is not in the data, or it matches more than one airport").toList(), envelope);
         }
         return new QueryResult.Ok<>(view, envelope);
     }
@@ -396,8 +397,30 @@ public class AirportQueryService {
         return new Snapshot(all, ranked, Percentiles.of(ranked));
     }
 
-    private <T> QueryResult<T> withAirport(String code, Function<Airport, QueryResult<T>> action) {
-        return data.airport(code).map(action).orElseGet(() -> notInData(code));
+    /**
+     * Runs the action for the airport that a code or a name gives. The tools accept both.
+     * No match is OUT_OF_SCOPE. More than one match is NOT_AVAILABLE with the possible airports,
+     * so the caller can ask the user.
+     */
+    private <T> QueryResult<T> withAirport(String text, Function<Airport, QueryResult<T>> action) {
+        QueryResult<Resolution> found = resolver.resolve(text);
+        if (!(found instanceof QueryResult.Ok<Resolution> ok)) {
+            return notInData(text);
+        }
+        Resolution resolution = ok.data();
+        if (!resolution.resolved()) {
+            return new QueryResult.NotAvailable<>("\"" + text + "\" matches more than one airport. Ask the user which one.",
+                    resolution.alternatives().stream()
+                            .map(c -> c.airport().iata() + " (" + c.airport().name() + ")").toList());
+        }
+        return action.apply(data.airports().get(resolution.best().airport().iata()));
+    }
+
+    /** The one airport that a code or a name gives, or empty. */
+    private Optional<Airport> uniqueAirport(String text) {
+        return resolver.resolve(text) instanceof QueryResult.Ok<Resolution> ok && ok.data().resolved()
+                ? Optional.of(data.airports().get(ok.data().best().airport().iata()))
+                : Optional.empty();
     }
 
     private AirportProfileView profileView(Airport airport, WeightProfile profile) {
@@ -436,8 +459,8 @@ public class AirportQueryService {
                 properties.profiles().keySet().stream().sorted().toList());
     }
 
-    private <T> QueryResult<T> notInData(String code) {
-        return new QueryResult.OutOfScope<>("No airport with the code " + code + " is in the data.",
+    private <T> QueryResult<T> notInData(String text) {
+        return new QueryResult.OutOfScope<>("No airport for \"" + text + "\" is in the data.",
                 AirportResolver.SCOPE_RULE);
     }
 

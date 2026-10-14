@@ -101,7 +101,7 @@ class ChatServiceTest {
         AgentConfig config = new AgentConfig();
         ChatClient client = config.airportChatClient(ChatClient.builder(model), new AirportTools(service, json),
                 config.chatMemory(), new ClassPathResource("prompts/system.txt"));
-        chat = new ChatService(client, json, "test-key-not-real");
+        chat = new ChatService(client, "test-key-not-real");
     }
 
     private double anchorageShare() {
@@ -112,7 +112,7 @@ class ChatServiceTest {
     void theToolRunsTheRealEngineAndAnAnswerWithEngineNumbersIsVerified() {
         double share = anchorageShare();
         model.script = prompt -> toolResponses(prompt).isEmpty()
-                ? Step.calls(call("1", "getLongHaulShare", "{\"code\":\"ANC\",\"minMiles\":2500}"))
+                ? Step.calls(call("1", "getLongHaulShare", "{\"airport\":\"ANC\",\"minMiles\":2500}"))
                 : Step.text(String.format("About %.1f%% of the passenger departures from ANC are long-haul.", share));
 
         ChatReply reply = chat.chat("s1", "What is the percentage of long-haul flights out of Anchorage?");
@@ -132,7 +132,7 @@ class ChatServiceTest {
                 return Step.text(String.format("The share is %.1f%%.", share));
             }
             return toolResponses(prompt).isEmpty()
-                    ? Step.calls(call("1", "getLongHaulShare", "{\"code\":\"ANC\"}"))
+                    ? Step.calls(call("1", "getLongHaulShare", "{\"airport\":\"ANC\"}"))
                     : Step.text("The share is 99.9%.");
         };
 
@@ -147,7 +147,7 @@ class ChatServiceTest {
     void ifTheRetryAlsoHasAnInventedNumberTheAnswerComesFromTheToolData() {
         model.script = prompt -> {
             if (!isRetry(prompt) && toolResponses(prompt).isEmpty()) {
-                return Step.calls(call("1", "getLongHaulShare", "{\"code\":\"ANC\"}"));
+                return Step.calls(call("1", "getLongHaulShare", "{\"airport\":\"ANC\"}"));
             }
             return Step.text("The share is 99.9%.");
         };
@@ -165,7 +165,7 @@ class ChatServiceTest {
         model.script = prompt -> {
             if (userText(prompt).contains("Anchorage")) {
                 return toolResponses(prompt).isEmpty()
-                        ? Step.calls(call("1", "getLongHaulShare", "{\"code\":\"ANC\"}"))
+                        ? Step.calls(call("1", "getLongHaulShare", "{\"airport\":\"ANC\"}"))
                         : Step.text(String.format("The share is %.1f%%.", share));
             }
             return Step.text(String.format("As I said, it is %.1f%%.", share));
@@ -185,7 +185,7 @@ class ChatServiceTest {
         double share = anchorageShare();
         model.script = prompt -> {
             if (userText(prompt).contains("Anchorage") && toolResponses(prompt).isEmpty()) {
-                return Step.calls(call("1", "getLongHaulShare", "{\"code\":\"ANC\"}"));
+                return Step.calls(call("1", "getLongHaulShare", "{\"airport\":\"ANC\"}"));
             }
             return Step.text(String.format("The share is %.1f%%.", share));
         };
@@ -216,7 +216,7 @@ class ChatServiceTest {
     @Test
     void anOutOfScopeResultReachesTheModelWithItsReason() {
         model.script = prompt -> toolResponses(prompt).isEmpty()
-                ? Step.calls(call("1", "getLongHaulShare", "{\"code\":\"LHR\"}"))
+                ? Step.calls(call("1", "getLongHaulShare", "{\"airport\":\"LHR\"}"))
                 : Step.text("That airport is not in the data.");
 
         ChatReply reply = chat.chat("s7", "Long-haul share at Heathrow?");
@@ -247,15 +247,14 @@ class ChatServiceTest {
     }
 
     @Test
-    void theModelCanCallEachOfTheEightTools() {
+    void theModelCanCallEachOfTheSevenTools() {
         String[][] specs = {
-                {"resolveAirport", "{\"text\":\"Santa Ana\"}"},
                 {"rankAirports", "{\"region\":\"NEW_ENGLAND\",\"profile\":\"terminal\"}"},
-                {"compareAirports", "{\"codes\":[\"LAX\",\"SNA\"],\"focus\":\"congestion\"}"},
-                {"getAirportProfile", "{\"code\":\"SFO\"}"},
-                {"getLongHaulShare", "{\"code\":\"ANC\"}"},
-                {"getUnmetDemandIndex", "{\"code\":\"SFO\"}"},
-                {"getLiveStatus", "{\"code\":\"LAX\"}"},
+                {"compareAirports", "{\"codes\":[\"LA\",\"Santa Ana\"],\"focus\":\"congestion\"}"},
+                {"getAirportProfile", "{\"airport\":\"SFO\"}"},
+                {"getLongHaulShare", "{\"airport\":\"Anchorage\"}"},
+                {"getUnmetDemandIndex", "{\"airport\":\"SFO\"}"},
+                {"getLiveStatus", "{\"airport\":\"LAX\"}"},
                 {"getMethodology", "{}"}};
         for (String[] spec : specs) {
             model.prompts.clear();

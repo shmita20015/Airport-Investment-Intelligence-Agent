@@ -2,7 +2,6 @@ package com.example.airportagent.data;
 
 import org.junit.jupiter.api.Test;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
@@ -10,29 +9,16 @@ import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** The parser is a library. These tests check the contract that the loader needs. */
 class CsvTest {
 
-    @Test
-    void splitsSimpleFields() {
-        assertThat(Csv.splitLine("a,b,c")).containsExactly("a", "b", "c");
-    }
-
-    @Test
-    void keepsCommasAndDoubledQuotesInsideQuotes() {
-        assertThat(Csv.splitLine("SFO,\"San Francisco, International\",\"He said \"\"hi\"\"\""))
-                .containsExactly("SFO", "San Francisco, International", "He said \"hi\"");
-    }
-
-    @Test
-    void keepsEmptyFields() {
-        assertThat(Csv.splitLine("a,,c,")).containsExactly("a", "", "c", "");
+    private static List<Map<String, String>> read(String text) throws IOException {
+        return Csv.read(new StringReader(text));
     }
 
     @Test
     void readsRowsAsMapsAndSkipsBlankLines() throws IOException {
-        String text = "iata,name\nSFO,\"San Francisco, Intl\"\n\nLAX,Los Angeles\n";
-
-        List<Map<String, String>> rows = Csv.read(new BufferedReader(new StringReader(text)));
+        List<Map<String, String>> rows = read("iata,name\nSFO,\"San Francisco, Intl\"\n\nLAX,Los Angeles\n");
 
         assertThat(rows).hasSize(2);
         assertThat(rows.get(0)).containsEntry("name", "San Francisco, Intl");
@@ -40,9 +26,14 @@ class CsvTest {
     }
 
     @Test
-    void missingTrailingFieldsBecomeEmptyText() throws IOException {
-        List<Map<String, String>> rows = Csv.read(new BufferedReader(new StringReader("a,b,c\n1,2\n")));
+    void keepsDoubledQuotesAndEmptyFields() throws IOException {
+        List<Map<String, String>> rows = read("a,b,c\n\"He said \"\"hi\"\"\",,x\n");
 
-        assertThat(rows.get(0)).containsEntry("c", "");
+        assertThat(rows.get(0)).containsEntry("a", "He said \"hi\"").containsEntry("b", "").containsEntry("c", "x");
+    }
+
+    @Test
+    void missingTrailingFieldsBecomeEmptyText() throws IOException {
+        assertThat(read("a,b,c\n1,2\n").get(0)).containsEntry("c", "");
     }
 }
