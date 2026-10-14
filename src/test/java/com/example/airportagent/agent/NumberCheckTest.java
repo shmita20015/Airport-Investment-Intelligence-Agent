@@ -57,6 +57,14 @@ class NumberCheckTest {
     }
 
     @Test
+    void aNumberWithCommasInAToolTextIsOneNumber() {
+        List<String> sources = List.of("{\"assumptions\":[\"at least 100,000 enplanements\"]}");
+
+        assertThat(NumberCheck.unsupported("The size limit is 100,000 enplanements.", sources)).isEmpty();
+        assertThat(NumberCheck.unsupported("The size limit is 100 enplanements.", sources)).containsExactly("100");
+    }
+
+    @Test
     void aNumberInsideAWordOrCodeIsNotSplit() {
         assertThat(unsupported("The airport is B6 with code A320.")).isEmpty();
     }

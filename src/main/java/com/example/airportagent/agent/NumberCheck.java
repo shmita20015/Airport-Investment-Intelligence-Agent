@@ -16,7 +16,7 @@ public final class NumberCheck {
 
     private static final Pattern IN_ANSWER =
             Pattern.compile("(?<![\\w.])(\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)(\\s*(?:million|billion|thousand|[MBK])\\b)?");
-    private static final Pattern IN_SOURCE = Pattern.compile("-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?");
+    private static final Pattern IN_SOURCE = Pattern.compile("-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?");
     private static final double SMALLEST_CHECKED = 10;
 
     private NumberCheck() {
@@ -32,7 +32,7 @@ public final class NumberCheck {
         for (String source : sources) {
             Matcher matcher = IN_SOURCE.matcher(source);
             while (matcher.find()) {
-                allowed.add(Double.parseDouble(matcher.group()));
+                allowed.add(Double.parseDouble(matcher.group().replace(",", "")));
             }
         }
         List<String> result = new ArrayList<>();

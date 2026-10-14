@@ -86,6 +86,12 @@ Each result has an **envelope**: assumptions, uncertainties, what is out of scop
 - The app starts with no API key.
 - ArchUnit: `scoring` has no Spring and no AI code. Only the `agent` package uses Spring AI.
 
-## 9. Not verified
-- The real behavior of Gemini with the tools (the model name `gemini-2.5-flash`, the free-tier limit).
+## 9. Real LLM check (2026-10-14)
+I ran the four example questions and one follow-up with real Gemini (`gemini-3.1-flash-lite`). Each answer used the right tools, and the number check passed.
+- Gemini often returned 503 (high demand) for the larger models, and the old model `gemini-2.5-flash` was not available to new keys. The model name is a setting: `GEMINI_MODEL` (default `gemini-3.8-flash`). Set `GEMINI_MODEL=gemini-3.1-flash-lite` if the default model is busy.
+- The number check found one real problem (a size limit "100,000" in a tool text was read as two numbers). It is fixed and has a test.
+- The check cannot see wrong words. Example: one answer called raw values "percentiles". The numbers were correct.
+
+## 10. Not verified
 - Voice in a real browser.
+- The behavior of the larger Gemini models with the tools (they were overloaded during the check).

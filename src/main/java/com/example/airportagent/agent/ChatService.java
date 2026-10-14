@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -58,7 +59,7 @@ public class ChatService {
             try {
                 return answer(session, message, log);
             } catch (RuntimeException e) {
-                LOG.warn("The language model call failed: {}", e.toString());
+                LOG.warn("The language model call failed", e);
                 return new ChatReply(session, "The language model is not available now (" + shortReason(e)
                         + "). The REST API under /api still works and gives the same numbers.",
                         false, toolNames(log), List.of());
@@ -129,7 +130,8 @@ public class ChatService {
     }
 
     private static String shortReason(RuntimeException e) {
-        String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(e);
+        String message = cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();
         return message.length() > 160 ? message.substring(0, 160) + "..." : message;
     }
 }

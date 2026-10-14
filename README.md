@@ -31,6 +31,8 @@ If `GEMINI_API_KEY` is not set, the app still starts. The REST API works. The ch
 
 Never write the key in a file of the project.
 
+The model is a setting. The default is `gemini-3.8-flash`. If it answers 503 (busy), set `GEMINI_MODEL=gemini-3.1-flash-lite` before you start the app.
+
 ## Example questions
 1. Which New England airports are strong candidates for terminal expansion?
 2. Compare LAX and SNA congestion.
