@@ -31,9 +31,4 @@ class CsvTest {
 
         assertThat(rows.get(0)).containsEntry("a", "He said \"hi\"").containsEntry("b", "").containsEntry("c", "x");
     }
-
-    @Test
-    void missingTrailingFieldsBecomeEmptyText() throws IOException {
-        assertThat(read("a,b,c\n1,2\n").get(0)).containsEntry("c", "");
-    }
 }

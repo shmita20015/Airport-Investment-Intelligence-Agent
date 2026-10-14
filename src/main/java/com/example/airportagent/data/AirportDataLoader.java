@@ -7,7 +7,6 @@ import com.example.airportagent.data.Rows.OntimeRow;
 import com.example.airportagent.data.Rows.TrafficRow;
 import com.example.airportagent.domain.Airport;
 import com.example.airportagent.domain.HubClass;
-import com.example.airportagent.domain.Region;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -32,7 +31,7 @@ public final class AirportDataLoader {
         for (Map<String, String> row : Csv.readResource(BASE + "airports.csv")) {
             String code = row.get("iata");
             airports.put(code, new Airport(code, row.get("faa_id"), row.get("name"), row.get("city"),
-                    row.get("state"), Region.fromText(row.get("region")), number(row.get("lat")).orElse(Double.NaN),
+                    row.get("state"), number(row.get("lat")).orElse(Double.NaN),
                     number(row.get("lon")).orElse(Double.NaN),
                     integer(row.get("runway_count")), HubClass.fromFaaCode(row.get("hub_class"))));
         }

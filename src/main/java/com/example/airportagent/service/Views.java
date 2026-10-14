@@ -5,7 +5,6 @@ import com.example.airportagent.domain.Component;
 import com.example.airportagent.domain.HubClass;
 import com.example.airportagent.domain.Kpi;
 import com.example.airportagent.domain.LiveStatus;
-import com.example.airportagent.domain.Region;
 import com.example.airportagent.domain.Score;
 
 import java.util.List;
@@ -16,11 +15,11 @@ public final class Views {
 
     private Views() {}
 
-    public record AirportRef(String iata, String name, String city, String state, Region region,
+    public record AirportRef(String iata, String name, String city, String state,
                              HubClass hubClass, int runwayCount) {
 
         public static AirportRef of(Airport airport) {
-            return new AirportRef(airport.iata(), airport.name(), airport.city(), airport.state(), airport.region(),
+            return new AirportRef(airport.iata(), airport.name(), airport.city(), airport.state(),
                     airport.hubClass(), airport.runwayCount());
         }
     }

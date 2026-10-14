@@ -7,7 +7,6 @@ import com.example.airportagent.domain.Confidence;
 import com.example.airportagent.domain.Contribution;
 import com.example.airportagent.domain.Kpi;
 import com.example.airportagent.domain.LiveStatus;
-import com.example.airportagent.domain.Region;
 import com.example.airportagent.domain.Score;
 import com.example.airportagent.service.Views.AirportProfileView;
 import com.example.airportagent.service.Views.ComparisonView;
@@ -71,7 +70,7 @@ class AirportQueryServiceTest {
 
         List<RankedItem> items = result.data().items();
         assertThat(items.get(0).airport().iata()).isEqualTo("BOS");
-        assertThat(items).extracting(i -> i.airport().region()).containsOnly(Region.NEW_ENGLAND);
+        assertThat(items).extracting(i -> i.airport().state()).isSubsetOf("CT", "MA", "ME", "NH", "RI", "VT");
         assertThat(items).extracting(RankedItem::rank).containsExactlyElementsOf(
                 java.util.stream.IntStream.rangeClosed(1, items.size()).boxed().toList());
         assertThat(items).extracting(RankedItem::nationalRank).isSorted();
@@ -141,6 +140,41 @@ class AirportQueryServiceTest {
                 na -> assertThat(na.whatIsAvailable()).contains("terminal", "general"));
         assertThat(service.rank("MARS", "terminal", 5)).isInstanceOfSatisfying(QueryResult.NotAvailable.class,
                 na -> assertThat(na.reason()).contains("Unknown region"));
+    }
+
+    @Test
+    void regionsCanBeANameAStateCodeOrAList() {
+        assertThat(ok(service.rank("WEST_COAST", "general", 50)).data().items())
+                .extracting(i -> i.airport().state()).isSubsetOf("CA", "OR", "WA").contains("CA", "WA");
+        assertThat(ok(service.rank("TX", "general", 50)).data().items())
+                .extracting(i -> i.airport().state()).containsOnly("TX");
+        assertThat(ok(service.rank("CA, OR", "general", 50)).data().items())
+                .extracting(i -> i.airport().state()).containsOnly("CA", "OR");
+        assertThat(ok(service.rank("new england", "terminal", 3)).data().region()).isEqualTo("NEW_ENGLAND");
+        assertThat(ok(service.rank("ALL", "terminal", 3)).data().region()).isEqualTo("ALL");
+        assertThat(ok(service.rank(null, "terminal", 3)).data().region()).isEqualTo("ALL");
+    }
+
+    @Test
+    void aBroadRegionContainsItsDivisions() {
+        List<String> northeast = ok(service.rank("NORTHEAST", "general", 50)).data().items().stream()
+                .map(i -> i.airport().iata()).toList();
+
+        assertThat(northeast).contains("BOS", "JFK", "PHL", "PWM");
+    }
+
+    @Test
+    void aRegionRankIsCountedInsideTheRegionAndTheNationalRankIsKept() {
+        RankedItem first = ok(service.rank("TX", "general", 1)).data().items().get(0);
+
+        assertThat(first.rank()).isEqualTo(1);
+        assertThat(first.nationalRank()).isGreaterThan(1);
+    }
+
+    @Test
+    void anUnknownRegionListsTheKnownNames() {
+        assertThat(service.rank("Atlantis", "general", 5)).isInstanceOfSatisfying(QueryResult.NotAvailable.class,
+                na -> assertThat(na.whatIsAvailable().toString()).contains("NEW_ENGLAND", "WEST_COAST", "ALL"));
     }
 
     // ---------------------------------------------------------------- one airport

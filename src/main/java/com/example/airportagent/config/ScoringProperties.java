@@ -4,6 +4,7 @@ import com.example.airportagent.domain.Component;
 import com.example.airportagent.scoring.WeightProfile;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -16,7 +17,8 @@ public record ScoringProperties(
         Map<Component, Double> unmetDemand,
         long minEnplanements,
         long minOntimeFlights,
-        int defaultLongHaulMiles) {
+        int defaultLongHaulMiles,
+        Map<String, List<String>> regions) {
 
     /** The weight profile with this name. The constructor of WeightProfile checks that the sum is 1.0. */
     public WeightProfile profile(String name) {

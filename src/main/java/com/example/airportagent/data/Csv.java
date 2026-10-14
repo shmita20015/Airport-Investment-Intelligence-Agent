@@ -10,11 +10,13 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Reads a CSV file with a header line. Each row is a map from the column name to the text (Apache Commons CSV). */
+/**
+ * Reads a CSV file with a header line. Each row is a map from the column name to the text (Apache Commons CSV).
+ * The files come from scripts/prepare_data.py, so each row is complete.
+ */
 final class Csv {
 
     private static final CSVFormat FORMAT = CSVFormat.DEFAULT.builder()
@@ -40,17 +42,7 @@ final class Csv {
 
     static List<Map<String, String>> read(Reader reader) throws IOException {
         try (CSVParser parser = FORMAT.parse(reader)) {
-            List<String> header = parser.getHeaderNames();
-            return parser.stream().map(record -> toRow(header, record)).toList();
+            return parser.stream().map(CSVRecord::toMap).toList();
         }
-    }
-
-    /** A column that the line does not have becomes an empty text. */
-    private static Map<String, String> toRow(List<String> header, CSVRecord record) {
-        Map<String, String> row = new LinkedHashMap<>();
-        for (String name : header) {
-            row.put(name, record.isSet(name) ? record.get(name) : "");
-        }
-        return row;
     }
 }

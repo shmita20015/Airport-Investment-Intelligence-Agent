@@ -6,7 +6,6 @@ import com.example.airportagent.domain.AirportMetrics;
 import com.example.airportagent.domain.HubClass;
 import com.example.airportagent.domain.Kpi;
 import com.example.airportagent.domain.MetricValue;
-import com.example.airportagent.domain.Region;
 import com.example.airportagent.scoring.LongHaulCalculator;
 import com.example.airportagent.service.MetricsBuilder;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,7 +32,7 @@ class RealDataIntegrityTest {
     @BeforeAll
     static void load() {
         data = new AirportDataLoader().load();
-        builder = new MetricsBuilder(new ScoringProperties(Map.of(), Map.of(), MIN_ENPLANEMENTS, 1_000, 2_500));
+        builder = new MetricsBuilder(new ScoringProperties(Map.of(), Map.of(), MIN_ENPLANEMENTS, 1_000, 2_500, Map.of()));
     }
 
     @Test
@@ -65,7 +64,7 @@ class RealDataIntegrityTest {
     @Test
     void newEnglandAirportsAboveTheSizeLimitHaveTrafficRunwaysAndGrowth() {
         List<Airport> newEngland = rankedAirports().stream()
-                .filter(airport -> airport.region() == Region.NEW_ENGLAND).toList();
+                .filter(airport -> java.util.Set.of("CT", "MA", "ME", "NH", "RI", "VT").contains(airport.state())).toList();
 
         assertThat(newEngland).extracting(Airport::iata).contains("BOS", "BDL", "PVD", "PWM", "BTV", "MHT", "BGR");
         for (Airport airport : newEngland) {
@@ -109,11 +108,11 @@ class RealDataIntegrityTest {
     }
 
     @Test
-    void hubClassesAndRegionsAreRead() {
+    void hubClassesAndStatesAreRead() {
         assertThat(data.airport("LAX").orElseThrow().hubClass()).isEqualTo(HubClass.LARGE);
         assertThat(data.airport("SNA").orElseThrow().hubClass()).isEqualTo(HubClass.MEDIUM);
-        assertThat(data.airport("BOS").orElseThrow().region()).isEqualTo(Region.NEW_ENGLAND);
-        assertThat(data.airport("SFO").orElseThrow().region()).isEqualTo(Region.OTHER);
+        assertThat(data.airport("BOS").orElseThrow().state()).isEqualTo("MA");
+        assertThat(data.airport("SFO").orElseThrow().state()).isEqualTo("CA");
     }
 
     @Test

@@ -12,7 +12,6 @@ import com.example.airportagent.domain.AirportMetrics;
 import com.example.airportagent.domain.HubClass;
 import com.example.airportagent.domain.Kpi;
 import com.example.airportagent.domain.MetricValue;
-import com.example.airportagent.domain.Region;
 import org.assertj.core.data.Offset;
 import org.junit.jupiter.api.Test;
 
@@ -28,10 +27,10 @@ class MetricsBuilderTest {
     private static final Offset<Double> TINY = Offset.offset(1e-9);
 
     private final MetricsBuilder builder =
-            new MetricsBuilder(new ScoringProperties(Map.of(), Map.of(), 100_000, 2_000, 2_500));
+            new MetricsBuilder(new ScoringProperties(Map.of(), Map.of(), 100_000, 2_000, 2_500, Map.of()));
 
     private static Airport airport(String code, int runways) {
-        return new Airport(code, code, code + " Airport", "City", "MA", Region.NEW_ENGLAND, 0, 0, runways,
+        return new Airport(code, code, code + " Airport", "City", "MA", 0, 0, runways,
                 HubClass.MEDIUM);
     }
 

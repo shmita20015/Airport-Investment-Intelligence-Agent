@@ -13,7 +13,6 @@ import com.example.airportagent.domain.Envelope;
 import com.example.airportagent.domain.Kpi;
 import com.example.airportagent.domain.LiveStatus;
 import com.example.airportagent.domain.MetricValue;
-import com.example.airportagent.domain.Region;
 import com.example.airportagent.domain.Score;
 import com.example.airportagent.scoring.LongHaulCalculator;
 import com.example.airportagent.scoring.Percentiles;
@@ -42,6 +41,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -94,7 +95,8 @@ public class AirportQueryService {
     /**
      * Rank the airports of the ranked set.
      *
-     * @param region      NEW_ENGLAND, or empty / ALL for the whole country. The percentiles stay national.
+     * @param region      a region name from the settings (for example NEW_ENGLAND), a state code (for example TX),
+     *                    a comma list of both, or empty / ALL for the whole country. The percentiles stay national.
      * @param profileName a weight profile name (for example terminal). Empty means the default profile.
      * @param topN        the number of airports to return (1 to 50)
      */
@@ -103,11 +105,11 @@ public class AirportQueryService {
         if (profile.isEmpty()) {
             return unknownProfile(profileName);
         }
-        Optional<Region> regionFilter;
+        RegionFilter regionFilter;
         try {
             regionFilter = parseRegion(region);
         } catch (IllegalArgumentException e) {
-            return new QueryResult.NotAvailable<>(e.getMessage(), List.of("NEW_ENGLAND", "ALL"));
+            return new QueryResult.NotAvailable<>(e.getMessage(), knownRegions());
         }
         int limit = clampTopN(topN);
 
@@ -118,12 +120,12 @@ public class AirportQueryService {
         for (int i = 0; i < national.size() && items.size() < limit; i++) {
             Score score = national.get(i);
             Airport airport = data.airports().get(score.iata());
-            if (regionFilter.isPresent() && airport.region() != regionFilter.get()) {
+            if (!regionFilter.contains(airport)) {
                 continue;
             }
             items.add(new RankedItem(++regionRank, i + 1, AirportRef.of(airport), score));
         }
-        String regionText = regionFilter.map(Region::name).orElse("ALL");
+        String regionText = regionFilter.label();
         RankingView view = new RankingView(profile.get().name(), regionText, rankedSet.size(),
                 (int) rankedSet.minEnplanements(), items);
 
@@ -142,7 +144,7 @@ public class AirportQueryService {
                 List.of(EnvelopeFactory.NO_PROFIT, "Airports below the size limit are not ranked."));
         if (items.isEmpty()) {
             return new QueryResult.NotAvailable<>("No ranked airport matches the region " + regionText + ".",
-                    List.of("NEW_ENGLAND", "ALL"));
+                    knownRegions());
         }
         return new QueryResult.Ok<>(view, envelope);
     }
@@ -464,16 +466,54 @@ public class AirportQueryService {
                 AirportResolver.SCOPE_RULE);
     }
 
-    private static Optional<Region> parseRegion(String region) {
-        if (region == null || region.isBlank()) {
-            return Optional.empty();
+    /** The states of a region filter. An empty set means the whole country. */
+    private record RegionFilter(String label, Set<String> states) {
+        boolean contains(Airport airport) {
+            return states.isEmpty() || states.contains(airport.state());
         }
-        String key = region.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
-        return switch (key) {
-            case "ALL", "US", "USA", "NATIONAL" -> Optional.empty();
-            case "NEW_ENGLAND", "NE" -> Optional.of(Region.NEW_ENGLAND);
-            default -> throw new IllegalArgumentException("Unknown region: " + region + ".");
-        };
+    }
+
+    /**
+     * Reads a region text: a region name from the settings, a state code, or a comma list of both.
+     * The state of an airport is a US state code, or a territory code (for example PR).
+     */
+    private RegionFilter parseRegion(String text) {
+        if (text == null || text.isBlank()) {
+            return new RegionFilter("ALL", Set.of());
+        }
+        Set<String> states = new TreeSet<>();
+        List<String> labels = new ArrayList<>();
+        for (String token : text.split(",")) {
+            String key = token.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+            if (key.isEmpty()) {
+                continue;
+            }
+            if (Set.of("ALL", "US", "USA", "NATIONAL").contains(key)) {
+                return new RegionFilter("ALL", Set.of());
+            }
+            if (properties.regions().containsKey(key)) {
+                states.addAll(properties.regions().get(key));
+            } else if (knownStates().contains(key)) {
+                states.add(key);
+            } else {
+                throw new IllegalArgumentException("Unknown region: " + token.trim() + ".");
+            }
+            labels.add(key);
+        }
+        return states.isEmpty() ? new RegionFilter("ALL", Set.of())
+                : new RegionFilter(String.join(",", labels), Set.copyOf(states));
+    }
+
+    private Set<String> knownStates() {
+        return data.airports().values().stream().map(Airport::state).collect(Collectors.toSet());
+    }
+
+    /** The region names that the caller can use. */
+    private List<String> knownRegions() {
+        List<String> names = new ArrayList<>(properties.regions().keySet().stream().sorted().toList());
+        names.add("ALL");
+        names.add("or a state code, for example TX, or a comma list such as CA,OR,WA");
+        return names;
     }
 
     private static int clampTopN(Integer topN) {

@@ -39,6 +39,33 @@ airport:
     min-ontime-flights: 1000
     # Default distance limit of the long-haul share, in statute miles.
     default-long-haul-miles: 2500
+    # Regions for the ranking filter. A region is a list of state codes. The user can also give a state code
+    # (for example TX) or a comma list (for example CA,OR,WA). The percentiles stay national.
+    # The first group follows the US Census Bureau (4 regions and 9 divisions). The second group is informal.
+    regions:
+      NORTHEAST: [CT, ME, MA, NH, RI, VT, NJ, NY, PA]
+      MIDWEST: [IL, IN, MI, OH, WI, IA, KS, MN, MO, NE, ND, SD]
+      SOUTH: [DE, DC, FL, GA, MD, NC, SC, VA, WV, AL, KY, MS, TN, AR, LA, OK, TX]
+      WEST: [AZ, CO, ID, MT, NV, NM, UT, WY, AK, CA, HI, OR, WA]
+      NEW_ENGLAND: [CT, ME, MA, NH, RI, VT]
+      MID_ATLANTIC: [NJ, NY, PA]
+      EAST_NORTH_CENTRAL: [IL, IN, MI, OH, WI]
+      WEST_NORTH_CENTRAL: [IA, KS, MN, MO, NE, ND, SD]
+      SOUTH_ATLANTIC: [DE, DC, FL, GA, MD, NC, SC, VA, WV]
+      EAST_SOUTH_CENTRAL: [AL, KY, MS, TN]
+      WEST_SOUTH_CENTRAL: [AR, LA, OK, TX]
+      MOUNTAIN: [AZ, CO, ID, MT, NV, NM, UT, WY]
+      PACIFIC: [AK, CA, HI, OR, WA]
+      WEST_COAST: [CA, OR, WA]
+      PACIFIC_NORTHWEST: [OR, WA, ID]
+      SOUTHWEST: [AZ, NM, TX, OK]
+      SOUTHEAST: [AL, AR, FL, GA, KY, LA, MS, NC, SC, TN, VA, WV]
+      GREAT_LAKES: [IL, IN, MI, MN, NY, OH, PA, WI]
+      GREAT_PLAINS: [KS, NE, ND, OK, SD]
+      ROCKY_MOUNTAIN: [CO, ID, MT, UT, WY]
+      GULF_COAST: [AL, FL, LA, MS, TX]
+      LOWER_48: [AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, IA, ID, IL, IN, KS, KY, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VA, VT, WA, WI, WV, WY]
+      TERRITORIES: [PR, VI, GU, MP, AS]
 
   live:
     # The live FAA call. It shows the current delay status. It is not a score input.

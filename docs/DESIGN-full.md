@@ -197,8 +197,8 @@ All files go in `src/main/resources/data/`.
 |---|---|
 | `iata` | The IATA code. It is the main key of the app. |
 | `faa_id` | The FAA location ID (OurAirports `local_code`). |
-| `name`, `city`, `state` | Text for display. |
-| `region` | `NEW_ENGLAND` for CT, ME, MA, NH, RI, VT. Other regions are optional. |
+| `name`, `city` | Text for display. |
+| `state` | The US state code, or the territory code (for example PR). A region is a list of state codes in `application.yml` (`airport.scoring.regions`). |
 | `lat`, `lon` | Coordinates. |
 | `runway_count` | Number of open runways in `runways.csv`. |
 | `hub_class` | `L`, `M`, `S` or `N` from the FAA `Hub` column. |
@@ -491,7 +491,7 @@ If the long-haul value is missing, the weights of the other four become 0.30 ÷ 
 
 | Tool | Purpose |
 |---|---|
-| `rankAirports(region, profile, topN)` | Rank the ranked set. |
+| `rankAirports(region, profile, topN)` | Rank the ranked set. The region is a name from the settings (22 names, for example NEW_ENGLAND, WEST_COAST, MIDWEST), a state code (TX) or a comma list (CA,OR,WA). The percentiles stay national. |
 | `compareAirports(codes, focus)` | Compare two or more airports. |
 | `getAirportProfile(code)` | KPIs, components and the score trace of one airport. |
 | `getLongHaulShare(code, minMiles)` | Long-haul share. Returns the passenger value and the value with cargo flights. |

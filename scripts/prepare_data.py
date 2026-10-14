@@ -40,7 +40,6 @@ T100_URL = "https://www.transtats.bts.gov/DL_SelectFields.aspx?gnoyr_VQ=GDM&QO_f
 T100_FIELDS = ["YEAR", "MONTH", "ORIGIN", "DEST", "UNIQUE_CARRIER", "AIRCRAFT_TYPE", "CLASS", "DISTANCE",
                "PASSENGERS", "SEATS", "DEPARTURES_PERFORMED", "DEPARTURES_SCHEDULED"]
 
-NEW_ENGLAND = {"CT", "ME", "MA", "NH", "RI", "VT"}
 # The 50 states and DC have the country code US. These territories are US airports too.
 US_COUNTRIES = {"US", "PR", "VI", "GU", "MP", "AS"}
 # The BTS data and the FAA CY2024 file use PBI for West Palm Beach. OurAirports and the FAA CY2025 file use DJT.
@@ -398,7 +397,7 @@ def main():
         state = airport["iso_region"].replace("US-", "") if airport["iso_country"] == "US" else airport["iso_country"]
         airports_rows.append([
             code, airport["local_code"], airport["name"], airport["municipality"], state,
-            "NEW_ENGLAND" if state in NEW_ENGLAND else "OTHER", airport["latitude_deg"],
+            airport["latitude_deg"],
             airport["longitude_deg"], runway_count.get(airport["id"], 0), entry.get("hub", "")])
         enplanements = entry["enplanements"]
         enpl_rows.append([code, enplanements.get(2023, ""), enplanements.get(2024, ""),
@@ -411,7 +410,7 @@ def main():
             report.append(f"NO runway count for {code} ({airport['name']})")
 
     write_csv(out / "airports.csv",
-              ["iata", "faa_id", "name", "city", "state", "region", "lat", "lon", "runway_count", "hub_class"],
+              ["iata", "faa_id", "name", "city", "state", "lat", "lon", "runway_count", "hub_class"],
               airports_rows)
     write_csv(out / "enplanements.csv", ["iata", "enpl_cy23", "enpl_cy24", "enpl_cy25", "faa_rank_cy25"], enpl_rows)
     write_csv(out / "traffic.csv", ["iata", "year", "pax", "seats", "departures_pax", "departures_cargo"],

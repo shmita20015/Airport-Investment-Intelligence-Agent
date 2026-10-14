@@ -30,7 +30,9 @@ public class AirportTools {
     @Tool(description = "Rank US airports by an opportunity score. Use it for questions about the best candidates for "
             + "terminal expansion or investment. The percentiles are national. The region only filters the list.")
     public ApiResponse<?> rankAirports(
-            @ToolParam(description = "NEW_ENGLAND, or ALL for the whole country", required = false) String region,
+            @ToolParam(description = "A region name (NEW_ENGLAND, NORTHEAST, MIDWEST, SOUTH, WEST, PACIFIC_NORTHWEST, WEST_COAST, "
+                    + "SOUTHWEST, SOUTHEAST, GREAT_LAKES, GULF_COAST, ROCKY_MOUNTAIN, TERRITORIES and others), "
+                    + "a state code such as TX, a comma list such as CA,OR,WA, or ALL for the whole country", required = false) String region,
             @ToolParam(description = "Weight profile: terminal (terminal expansion) or general", required = false) String profile,
             @ToolParam(description = "Number of airports, 1 to 50. Default 10", required = false) Integer topN,
             ToolContext context) {

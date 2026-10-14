@@ -39,6 +39,24 @@ class ScoringPropertiesTest {
                 .hasMessageContaining("Unknown weight profile");
     }
 
+    @Autowired
+    private com.example.airportagent.data.AirportDataset data;
+
+    @Test
+    void everyStateCodeOfTheRegionsExistsInTheData() {
+        java.util.Set<String> states = data.airports().values().stream().map(a -> a.state()).collect(
+                java.util.stream.Collectors.toSet());
+
+        properties.regions().forEach((name, codes) -> assertThat(states).as(name).containsAll(codes));
+    }
+
+    @Test
+    void theBroadRegionsAreMadeOfTheirDivisions() {
+        assertThat(properties.regions().get("NORTHEAST")).containsAll(properties.regions().get("NEW_ENGLAND"))
+                .containsAll(properties.regions().get("MID_ATLANTIC"));
+        assertThat(properties.regions().get("LOWER_48")).hasSize(49).doesNotContain("AK", "HI");
+    }
+
     @Test
     void sizeAndLimitSettingsAreRead() {
         assertThat(properties.minEnplanements()).isEqualTo(100_000);
