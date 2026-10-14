@@ -1,0 +1,501 @@
+package com.example.airportagent.service;
+
+import com.example.airportagent.config.ScoringProperties;
+import com.example.airportagent.data.AirportDataset;
+import com.example.airportagent.data.ExpertNotes;
+import com.example.airportagent.data.FaaStatusClient;
+import com.example.airportagent.domain.Airport;
+import com.example.airportagent.domain.AirportMetrics;
+import com.example.airportagent.domain.Component;
+import com.example.airportagent.domain.Confidence;
+import com.example.airportagent.domain.Contribution;
+import com.example.airportagent.domain.Envelope;
+import com.example.airportagent.domain.Kpi;
+import com.example.airportagent.domain.LiveStatus;
+import com.example.airportagent.domain.MetricValue;
+import com.example.airportagent.domain.Region;
+import com.example.airportagent.domain.Score;
+import com.example.airportagent.scoring.LongHaulCalculator;
+import com.example.airportagent.scoring.Percentiles;
+import com.example.airportagent.scoring.ScoreCalculator;
+import com.example.airportagent.scoring.WeightProfile;
+import com.example.airportagent.service.Views.AirportProfileView;
+import com.example.airportagent.service.Views.AirportRef;
+import com.example.airportagent.service.Views.ComparisonView;
+import com.example.airportagent.service.Views.KpiView;
+import com.example.airportagent.service.Views.LiveStatusView;
+import com.example.airportagent.service.Views.LongHaulView;
+import com.example.airportagent.service.Views.MethodologyView;
+import com.example.airportagent.service.Views.RankedItem;
+import com.example.airportagent.service.Views.RankingView;
+import com.example.airportagent.service.Views.Resolution;
+import com.example.airportagent.service.Views.UnmetDemandView;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.OptionalDouble;
+import java.util.stream.Collectors;
+
+/**
+ * The single facade of the app. The REST API and the agent tools call this class and nothing else.
+ * It gives the same numbers to both (DESIGN.md, section 4.3). It has no AI code.
+ */
+@Service
+public class AirportQueryService {
+
+    static final String T100_TABLE = "BTS T-100 Segment (US carriers), domestic and international flights";
+    static final String DEFAULT_PROFILE = "general";
+    static final int DEFAULT_TOP_N = 10;
+    static final int MAX_TOP_N = 50;
+    static final int MAX_COMPARE = 6;
+
+    private final AirportDataset data;
+    private final MetricsBuilder metrics;
+    private final ScoringProperties properties;
+    private final RankedSet rankedSet;
+    private final EnvelopeFactory envelopes;
+    private final AirportResolver resolver;
+    private final FaaStatusClient liveClient;
+    private final ExpertNotes expertNotes;
+    private final ScoreCalculator calculator = new ScoreCalculator();
+
+    public AirportQueryService(AirportDataset data, MetricsBuilder metrics, ScoringProperties properties,
+                               RankedSet rankedSet, EnvelopeFactory envelopes, AirportResolver resolver,
+                               FaaStatusClient liveClient, ExpertNotes expertNotes) {
+        this.data = data;
+        this.metrics = metrics;
+        this.properties = properties;
+        this.rankedSet = rankedSet;
+        this.envelopes = envelopes;
+        this.resolver = resolver;
+        this.liveClient = liveClient;
+        this.expertNotes = expertNotes;
+    }
+
+    // ------------------------------------------------------------------ name lookup
+
+    public QueryResult<Resolution> resolveAirport(String text) {
+        return resolver.resolve(text);
+    }
+
+    // ------------------------------------------------------------------ ranking
+
+    /**
+     * Rank the airports of the ranked set.
+     *
+     * @param region      NEW_ENGLAND, or empty / ALL for the whole country. The percentiles stay national.
+     * @param profileName a weight profile name (for example terminal). Empty means the default profile.
+     * @param topN        the number of airports to return (1 to 50)
+     */
+    public QueryResult<RankingView> rank(String region, String profileName, Integer topN) {
+        Optional<WeightProfile> profile = profileFor(profileName);
+        if (profile.isEmpty()) {
+            return unknownProfile(profileName);
+        }
+        Optional<Region> regionFilter;
+        try {
+            regionFilter = parseRegion(region);
+        } catch (IllegalArgumentException e) {
+            return new QueryResult.NotAvailable<>(e.getMessage(), List.of("NEW_ENGLAND", "ALL"));
+        }
+        int limit = clampTopN(topN);
+
+        Snapshot snapshot = defaultSnapshot();
+        List<AirportMetrics> ranked = snapshot.rankedMetrics(rankedSet);
+        List<Score> national = calculator.rank(ranked, profile.get(), Integer.MAX_VALUE);
+
+        List<RankedItem> items = new ArrayList<>();
+        int regionRank = 0;
+        for (int i = 0; i < national.size() && items.size() < limit; i++) {
+            Score score = national.get(i);
+            Airport airport = data.airports().get(score.iata());
+            if (regionFilter.isPresent() && airport.region() != regionFilter.get()) {
+                continue;
+            }
+            items.add(new RankedItem(++regionRank, i + 1, AirportRef.of(airport), score));
+        }
+        String regionText = regionFilter.map(Region::name).orElse("ALL");
+        RankingView view = new RankingView(profile.get().name(), regionText, rankedSet.size(),
+                (int) rankedSet.minEnplanements(), items);
+
+        List<Score> shown = items.stream().map(RankedItem::score).toList();
+        Envelope envelope = envelopes.build(profile.get().name(),
+                Map.of("region", regionText, "topN", String.valueOf(limit),
+                        "minEnplanements", String.valueOf(rankedSet.minEnplanements()),
+                        "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
+                lowestConfidence(shown),
+                List.of(describe(profile.get()),
+                        "The rank among the airports of the region is in the field rank. The rank among all ranked "
+                                + "airports is in the field nationalRank. The percentiles are always national.",
+                        "The score is an opportunity index. It shows traffic pressure and growth. It is a proxy "
+                                + "for the need of more capacity."),
+                coverageNotes(shown, true),
+                List.of(EnvelopeFactory.NO_PROFIT, "Airports below the size limit are not ranked."));
+        if (items.isEmpty()) {
+            return new QueryResult.NotAvailable<>("No ranked airport matches the region " + regionText + ".",
+                    List.of("NEW_ENGLAND", "ALL"));
+        }
+        return new QueryResult.Ok<>(view, envelope);
+    }
+
+    // ------------------------------------------------------------------ one airport
+
+    public QueryResult<AirportProfileView> airportProfile(String code, String profileName) {
+        Optional<Airport> airport = data.airport(code);
+        if (airport.isEmpty()) {
+            return notInData(code);
+        }
+        Optional<WeightProfile> profile = profileFor(profileName);
+        if (profile.isEmpty()) {
+            return unknownProfile(profileName);
+        }
+        Snapshot snapshot = defaultSnapshot();
+        AirportProfileView view = profileView(airport.get(), snapshot, profile.get());
+
+        List<String> missing = new ArrayList<>();
+        if (view.score() == null) {
+            missing.add("score: no component has data");
+        }
+        if (!view.inRankedSet()) {
+            missing.add("The airport is below the size limit of " + String.format("%,d", rankedSet.minEnplanements())
+                    + " enplanements. It is not in rankings. The score uses the ranked airports as peers.");
+        }
+        Envelope envelope = envelopes.build(profile.get().name(),
+                Map.of("airport", airport.get().iata(), "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
+                view.score() == null ? Confidence.LOW : view.score().confidence(),
+                List.of(describe(profile.get())),
+                view.score() == null ? List.of() : coverageNotes(List.of(view.score()), false),
+                List.of(EnvelopeFactory.NO_PROFIT));
+        return missing.isEmpty() ? new QueryResult.Ok<>(view, envelope)
+                : new QueryResult.Partial<>(view, missing, envelope);
+    }
+
+    // ------------------------------------------------------------------ comparison
+
+    /**
+     * Compare airports.
+     *
+     * @param focus "congestion" compares the congestion component only. A profile name (for example terminal)
+     *              compares the score of that profile.
+     */
+    public QueryResult<ComparisonView> compare(List<String> codes, String focus) {
+        if (codes == null || codes.size() < 2) {
+            return new QueryResult.NotAvailable<>("A comparison needs at least two airport codes.", List.of());
+        }
+        if (codes.size() > MAX_COMPARE) {
+            return new QueryResult.NotAvailable<>("A comparison can have at most " + MAX_COMPARE + " airports.", List.of());
+        }
+        String focusName = focus == null || focus.isBlank() ? "congestion" : focus.trim().toLowerCase(Locale.ROOT);
+        Optional<WeightProfile> profile = "congestion".equals(focusName)
+                ? Optional.of(new WeightProfile("congestion", Map.of(Component.CONGESTION, 1.0)))
+                : profileFor(focusName);
+        if (profile.isEmpty()) {
+            return unknownProfile(focusName);
+        }
+
+        List<Airport> found = new ArrayList<>();
+        List<String> unknown = new ArrayList<>();
+        for (String code : codes) {
+            data.airport(code).ifPresentOrElse(found::add, () -> unknown.add(code));
+        }
+        if (found.isEmpty()) {
+            return notInData(String.join(", ", codes));
+        }
+
+        Snapshot snapshot = defaultSnapshot();
+        List<AirportProfileView> views = found.stream().map(a -> profileView(a, snapshot, profile.get())).toList();
+
+        List<String> warnings = new ArrayList<>();
+        long hubClasses = found.stream().map(Airport::hubClass).distinct().count();
+        if (hubClasses > 1) {
+            warnings.add("The airports are in different FAA hub classes ("
+                    + found.stream().map(a -> a.iata() + ": " + a.hubClass()).collect(Collectors.joining(", "))
+                    + "). They have different sizes. Compare absolute values with care.");
+        }
+        for (AirportProfileView view : views) {
+            if (!view.inRankedSet()) {
+                warnings.add(view.airport().iata() + " is below the size limit. Its percentiles use the ranked airports as peers.");
+            }
+        }
+        ComparisonView view = new ComparisonView(focusName, profile.get().name(), views, warnings);
+
+        List<Score> scores = views.stream().map(AirportProfileView::score).filter(s -> s != null).toList();
+        Envelope envelope = envelopes.build(profile.get().name(),
+                Map.of("focus", focusName, "airports", String.join(",", found.stream().map(Airport::iata).toList()),
+                        "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
+                lowestConfidence(scores),
+                List.of("congestion".equals(focusName)
+                                ? "The congestion component is the mean of the percentiles of the delay rate, the taxi-out "
+                                + "time, the cancellation rate and the operations per runway. Missing KPIs are removed."
+                                : describe(profile.get()),
+                        "The operations per runway KPI assumes that arrivals equal departures and that all runways are independent."),
+                coverageNotes(scores, false),
+                List.of(EnvelopeFactory.NO_PROFIT));
+        if (!unknown.isEmpty()) {
+            return new QueryResult.Partial<>(view, unknown.stream().map(c -> c + " is not in the data").toList(), envelope);
+        }
+        return new QueryResult.Ok<>(view, envelope);
+    }
+
+    // ------------------------------------------------------------------ long-haul share
+
+    /**
+     * The long-haul share of the departures of an airport.
+     * Both values (passenger flights only, and with cargo flights) are in the result.
+     *
+     * @param minMiles the distance limit in statute miles. Empty means the default of the settings.
+     */
+    public QueryResult<LongHaulView> longHaul(String code, Integer minMiles) {
+        Optional<Airport> airport = data.airport(code);
+        if (airport.isEmpty()) {
+            return notInData(code);
+        }
+        int limit = minMiles == null ? properties.defaultLongHaulMiles() : minMiles;
+        if (limit < 0) {
+            return new QueryResult.NotAvailable<>("The distance limit must be zero or more miles.", List.of());
+        }
+        if (data.bucketsOf(airport.get().iata()).isEmpty()) {
+            return new QueryResult.NotAvailable<>("The T-100 data has no departures for " + airport.get().iata() + ".",
+                    List.of());
+        }
+        LongHaulCalculator.Result passenger = metrics.longHaulResult(data, airport.get().iata(), limit, false);
+        LongHaulCalculator.Result withCargo = metrics.longHaulResult(data, airport.get().iata(), limit, true);
+        double cargoDepartures = withCargo.totalDepartures() - passenger.totalDepartures();
+        LongHaulView view = new LongHaulView(AirportRef.of(airport.get()), data.info().dataYear(), T100_TABLE,
+                limit, passenger.limitUsed(), passenger.limitWasRounded(), boxed(passenger.share()),
+                boxed(withCargo.share()), passenger.totalDepartures(), cargoDepartures,
+                withCargo.totalDepartures() > 0 ? cargoDepartures / withCargo.totalDepartures() : 0);
+
+        List<String> uncertainties = new ArrayList<>();
+        if (passenger.limitWasRounded()) {
+            uncertainties.add("The distance buckets are 500 miles wide. The limit " + limit + " was rounded down to "
+                    + passenger.limitUsed() + " miles.");
+        }
+        if (view.cargoShareOfDepartures() > 0.2) {
+            uncertainties.add("Cargo flights are " + Math.round(view.cargoShareOfDepartures() * 100)
+                    + "% of the departures. The share with cargo flights is very different from the share of passenger flights.");
+        }
+        uncertainties.add("Flights of foreign airlines are not in the T-100 data.");
+        Envelope envelope = envelopes.build(null,
+                Map.of("airport", airport.get().iata(), "minMiles", String.valueOf(passenger.limitUsed()),
+                        "table", "T-100 segment, US carriers, domestic and international"),
+                Confidence.HIGH,
+                List.of("A long-haul flight is a departure on a route of at least " + passenger.limitUsed()
+                                + " statute miles. There is no standard limit. The default is "
+                                + properties.defaultLongHaulMiles() + " miles.",
+                        "The share counts departures performed, weighted by distance bucket. A passenger flight is a T-100 row with seats."),
+                uncertainties, List.of());
+        return new QueryResult.Ok<>(view, envelope);
+    }
+
+    // ------------------------------------------------------------------ unmet demand
+
+    /** The unmet demand index. It is a proxy. No public data measures demand that airlines did not serve. */
+    public QueryResult<UnmetDemandView> unmetDemand(String code) {
+        Optional<Airport> airport = data.airport(code);
+        if (airport.isEmpty()) {
+            return notInData(code);
+        }
+        WeightProfile profile = properties.unmetDemandProfile();
+        Snapshot snapshot = defaultSnapshot();
+        AirportMetrics airportMetrics = snapshot.all().get(airport.get().iata());
+        Optional<Score> score = calculator.score(airportMetrics, profile, snapshot.peers());
+        if (score.isEmpty()) {
+            return new QueryResult.NotAvailable<>("No data for " + airport.get().iata()
+                    + " to calculate the unmet demand index.", List.of());
+        }
+        Score value = score.get();
+        List<String> why = value.contributions().stream()
+                .map(c -> String.format(Locale.ROOT, "%s: component value %.1f (percentile), weight %.2f, %.1f points",
+                        c.component(), c.componentValue(), c.weight(), c.points()))
+                .toList();
+        Optional<ExpertNotes.Note> note = expertNotes.noteOf(airport.get().iata());
+        UnmetDemandView view = new UnmetDemandView(AirportRef.of(airport.get()), value.value(), "PROXY",
+                "Index = " + describeWeights(profile) + ". It is a proxy. No public data measures demand that "
+                        + "airlines did not serve. The index is not a number of flights or passengers.",
+                value, why, note.map(ExpertNotes.Note::text).orElse(null), note.map(ExpertNotes.Note::source).orElse(null));
+
+        Envelope envelope = envelopes.build(profile.name(),
+                Map.of("airport", airport.get().iata(), "label", "PROXY"),
+                value.confidence(),
+                List.of("The unmet demand index is a proxy: " + describeWeights(profile) + ".",
+                        "A high load factor, fast growth and high congestion together suggest that demand is higher than the capacity."),
+                coverageNotes(List.of(value), false),
+                List.of("A count of unserved flights or passengers. No public data has it.", EnvelopeFactory.NO_PROFIT));
+        return new QueryResult.Ok<>(view, envelope);
+    }
+
+    // ------------------------------------------------------------------ live status
+
+    /** The current FAA status. It is not a score input. */
+    public QueryResult<LiveStatusView> liveStatus(String code) {
+        Optional<Airport> airport = data.airport(code);
+        if (airport.isEmpty()) {
+            return notInData(code);
+        }
+        try {
+            LiveStatus status = liveClient.statusOf(airport.get().iata());
+            Envelope envelope = envelopes.build(null, Map.of("airport", airport.get().iata(), "source", "FAA NAS status"),
+                    Confidence.HIGH,
+                    List.of("The data comes from the FAA National Airspace System status service at the update time "
+                            + status.updateTime() + ". The service lists active events only. An airport that is not in the "
+                            + "list has no active event.", "The live status does not change any score."),
+                    status.restrictionNotices() > 0
+                            ? List.of(status.restrictionNotices() + " closure notice(s) only restrict some flights (for "
+                            + "example general aviation). They are not listed.")
+                            : List.of(),
+                    List.of());
+            return new QueryResult.Ok<>(new LiveStatusView(AirportRef.of(airport.get()), status), envelope);
+        } catch (IOException e) {
+            return new QueryResult.NotAvailable<>("The live FAA status is not available now (" + e.getMessage() + ").",
+                    List.of());
+        }
+    }
+
+    // ------------------------------------------------------------------ methodology
+
+    /** The weights, limits and scope. The agent uses it for questions about the method. */
+    public QueryResult<MethodologyView> methodology() {
+        Map<String, Map<String, Double>> profiles = new LinkedHashMap<>();
+        properties.profiles().keySet().stream().sorted().forEach(name -> profiles.put(name, weightsOf(properties.profile(name))));
+        MethodologyView view = new MethodologyView(profiles, weightsOf(properties.unmetDemandProfile()),
+                data.info().dataYear(), rankedSet.size(), rankedSet.minEnplanements(), properties.defaultLongHaulMiles(),
+                AirportResolver.SCOPE_RULE,
+                List.of("Each KPI becomes a percentile among the ranked airports. A component is the mean of its KPI percentiles.",
+                        "The score is the weighted mean of the available components. The weights of missing components "
+                                + "are shared among the others.",
+                        "Congestion has four KPIs: delay rate, taxi-out time, cancellation rate and operations per runway.",
+                        "The unmet demand index is a proxy. It is not a count of flights."));
+        Envelope envelope = envelopes.build(null, Map.of(), Confidence.HIGH, List.of(), List.of(), List.of(EnvelopeFactory.NO_PROFIT));
+        return new QueryResult.Ok<>(view, envelope);
+    }
+
+    private static Map<String, Double> weightsOf(WeightProfile profile) {
+        Map<String, Double> weights = new LinkedHashMap<>();
+        profile.weights().entrySet().stream()
+                .sorted(Map.Entry.<Component, Double>comparingByValue().reversed().thenComparing(e -> e.getKey().name()))
+                .forEach(e -> weights.put(e.getKey().name().toLowerCase(Locale.ROOT), e.getValue()));
+        return weights;
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    private record Snapshot(Map<String, AirportMetrics> all, Percentiles peers) {
+        List<AirportMetrics> rankedMetrics(RankedSet rankedSet) {
+            return all.values().stream().filter(m -> rankedSet.contains(m.iata())).toList();
+        }
+    }
+
+    private Snapshot defaultSnapshot() {
+        Map<String, AirportMetrics> all = metrics.buildAll(data, properties.defaultLongHaulMiles(), false);
+        List<AirportMetrics> ranked = all.values().stream().filter(m -> rankedSet.contains(m.iata())).toList();
+        return new Snapshot(all, Percentiles.of(ranked));
+    }
+
+    private AirportProfileView profileView(Airport airport, Snapshot snapshot, WeightProfile profile) {
+        AirportMetrics airportMetrics = snapshot.all().get(airport.iata());
+        Map<Component, Double> components = new EnumMap<>(Component.class);
+        components.putAll(calculator.componentValues(airportMetrics, snapshot.peers()));
+        Score score = calculator.score(airportMetrics, profile, snapshot.peers()).orElse(null);
+
+        List<KpiView> kpis = new ArrayList<>();
+        for (Kpi kpi : Kpi.values()) {
+            MetricValue value = airportMetrics.kpi(kpi);
+            kpis.add(switch (value) {
+                case MetricValue.Direct d -> new KpiView(kpi, d.value(), percentile(snapshot, kpi, d.value()),
+                        "DIRECT", d.source(), null);
+                case MetricValue.Proxy p -> new KpiView(kpi, p.value(), percentile(snapshot, kpi, p.value()),
+                        "PROXY", p.source(), "Proxy for: " + p.proxyFor());
+                case MetricValue.Missing m -> new KpiView(kpi, null, null, "MISSING", null, m.reason());
+            });
+        }
+        return new AirportProfileView(AirportRef.of(airport), rankedSet.contains(airport.iata()), profile.name(),
+                score, components, kpis);
+    }
+
+    private static Double percentile(Snapshot snapshot, Kpi kpi, double value) {
+        OptionalDouble percentile = snapshot.peers().rank(kpi, value);
+        return percentile.isPresent() ? percentile.getAsDouble() : null;
+    }
+
+    private Optional<WeightProfile> profileFor(String name) {
+        String key = name == null || name.isBlank() ? DEFAULT_PROFILE : name.trim().toLowerCase(Locale.ROOT);
+        return properties.profiles().containsKey(key) ? Optional.of(properties.profile(key)) : Optional.empty();
+    }
+
+    private <T> QueryResult<T> unknownProfile(String name) {
+        return new QueryResult.NotAvailable<>("Unknown weight profile: " + name + ".",
+                properties.profiles().keySet().stream().sorted().toList());
+    }
+
+    private <T> QueryResult<T> notInData(String code) {
+        return new QueryResult.OutOfScope<>("No airport with the code " + code + " is in the data.",
+                AirportResolver.SCOPE_RULE);
+    }
+
+    private static Optional<Region> parseRegion(String region) {
+        if (region == null || region.isBlank()) {
+            return Optional.empty();
+        }
+        String key = region.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+        return switch (key) {
+            case "ALL", "US", "USA", "NATIONAL" -> Optional.empty();
+            case "NEW_ENGLAND", "NE" -> Optional.of(Region.NEW_ENGLAND);
+            default -> throw new IllegalArgumentException("Unknown region: " + region + ".");
+        };
+    }
+
+    private static int clampTopN(Integer topN) {
+        return topN == null ? DEFAULT_TOP_N : Math.max(1, Math.min(MAX_TOP_N, topN));
+    }
+
+    private static Confidence lowestConfidence(List<Score> scores) {
+        return scores.stream().map(Score::confidence).max(Comparator.comparingInt(Enum::ordinal)).orElse(Confidence.LOW);
+    }
+
+    /** Notes about airports with lower coverage, and about proxies. */
+    private static List<String> coverageNotes(List<Score> scores, boolean listProxies) {
+        List<String> notes = new ArrayList<>();
+        for (Score score : scores) {
+            if (!score.missingKpis().isEmpty()) {
+                notes.add(score.iata() + ": no data for " + score.missingKpis().stream()
+                        .map(k -> k.name().toLowerCase(Locale.ROOT)).collect(Collectors.joining(", "))
+                        + ". Coverage " + String.format(Locale.ROOT, "%.2f", score.coverage())
+                        + " (" + score.confidence() + " confidence). Missing KPIs are removed from their component, "
+                        + "and missing components are removed from the score.");
+            }
+        }
+        boolean proxy = scores.stream().flatMap(s -> s.contributions().stream()).anyMatch(Contribution::usesProxy);
+        if (proxy || listProxies) {
+            notes.add("Load factor, passengers per departure and operations per runway are proxies for terminal "
+                    + "and runway pressure. They are not direct measures.");
+        }
+        return notes;
+    }
+
+    private static String describe(WeightProfile profile) {
+        return "Profile " + profile.name() + ": " + describeWeights(profile) + ". These weights are heuristics.";
+    }
+
+    private static String describeWeights(WeightProfile profile) {
+        Map<String, Double> sorted = new LinkedHashMap<>();
+        profile.weights().entrySet().stream()
+                .sorted(Map.Entry.<Component, Double>comparingByValue().reversed().thenComparing(e -> e.getKey().name()))
+                .forEach(e -> sorted.put(e.getKey().name().toLowerCase(Locale.ROOT), e.getValue()));
+        return sorted.entrySet().stream()
+                .map(e -> String.format(Locale.ROOT, "%.2f x %s", e.getValue(), e.getKey()))
+                .collect(Collectors.joining(" + "));
+    }
+
+    private static Double boxed(OptionalDouble value) {
+        return value.isPresent() ? value.getAsDouble() : null;
+    }
+}

@@ -1,0 +1,49 @@
+{
+  "generated": "2026-10-14T12:48:10+00:00",
+  "dataYear": 2025,
+  "sources": [
+    {
+      "name": "OurAirports airports.csv and runways.csv",
+      "url": "https://davidmegginson.github.io/ourairports-data/",
+      "use": "airport identity, location, open runway count"
+    },
+    {
+      "name": "FAA commercial service enplanements CY2024 and CY2025",
+      "url": "https://www.faa.gov/airports/planning_capacity/passenger_allcargo_stats/passenger/",
+      "files": [
+        "arp-cy2025-commercial-service-enplanements.xlsx",
+        "arp-cy2024-commercial-service-enplanements.xlsx"
+      ],
+      "use": "enplanements CY23 to CY25, hub class, rank, airport universe"
+    },
+    {
+      "name": "BTS T-100 Segment (US Carriers Only), domestic and international",
+      "url": "https://www.transtats.bts.gov/ (table GDM)",
+      "use": "passengers, seats, departures, distance buckets"
+    },
+    {
+      "name": "BTS On-Time Performance, 12 monthly files",
+      "url": "https://transtats.bts.gov/PREZIP/",
+      "use": "departure delay rate, cancellation rate, taxi-out time"
+    }
+  ],
+  "counts": {
+    "airports": 522,
+    "withTraffic": 519,
+    "withOnTime": 352,
+    "reportLines": 190
+  },
+  "rules": [
+    "T-100: rows with zero departures performed and rows with origin equal to destination are removed",
+    "T-100: a row with seats above 0 is a passenger row. Other rows are cargo rows",
+    "Distance buckets are 500 miles wide, weighted by departures performed",
+    "On-Time: delay rate = departures delayed 15 minutes or more / flights that did not cancel",
+    "Codes are matched to OurAirports by IATA code, then FAA code, then aliases.csv"
+  ],
+  "limits": [
+    "T-100 covers US carriers only",
+    "On-Time covers large reporting carriers only",
+    "T-100 counts segments, not trips",
+    "Some airports have no On-Time data"
+  ]
+}

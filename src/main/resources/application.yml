@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: airport-investment-agent
+  ai:
+    google:
+      genai:
+        # Set the key in the environment variable GEMINI_API_KEY. Never write it in this file.
+        # Spring AI refuses to start with an empty key. The value not-set lets the REST API start without a key.
+        # The chat then answers with a message and makes no call (ChatService.NO_KEY).
+        api-key: ${GEMINI_API_KEY:not-set}
+        chat:
+          options:
+            model: gemini-2.5-flash
+
+airport:
+  scoring:
+    # Heuristic start weights. They are not fitted to data. Each profile must add up to 1.0.
+    profiles:
+      terminal:
+        congestion: 0.25
+        growth: 0.20
+        load_factor: 0.15
+        terminal_strain: 0.15
+        long_haul: 0.10
+        scale: 0.15
+      general:
+        congestion: 0.35
+        growth: 0.25
+        load_factor: 0.25
+        scale: 0.15
+    # Unmet demand is a proxy index. See DESIGN.md, section 6.8.
+    unmet-demand:
+      load_factor: 0.40
+      growth: 0.30
+      congestion: 0.30
+    # Airports below this size are not ranked (enplanements a year).
+    min-enplanements: 100000
+    # Airports with fewer On-Time flights a year have no delay KPIs.
+    min-ontime-flights: 1000
+    # Default distance limit of the long-haul share, in statute miles.
+    default-long-haul-miles: 2500
+
+  live:
+    # The live FAA call. It shows the current delay status. It is not a score input.
+    faa-status-url: https://nasstatus.faa.gov/api/airport-status-information
+    timeout-ms: 3000

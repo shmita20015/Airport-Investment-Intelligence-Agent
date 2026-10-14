@@ -1,0 +1,2 @@
+iata,note,source
+SFO,"SFO has parallel runways that are close to each other. In low visibility they cannot work as independent runways, so the real capacity is lower than the number of runways suggests. The operations per runway KPI does not show this.","Known airfield layout and FAA rules for close parallel runways. This is an expert note. It is not calculated from the data files. Check it with the FAA before you use it."
