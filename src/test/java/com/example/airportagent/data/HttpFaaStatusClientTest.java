@@ -60,7 +60,7 @@ class HttpFaaStatusClientTest {
         LiveStatus sfo = HttpFaaStatusClient.parse(SAMPLE, "sfo");
 
         assertThat(sfo.airport()).isEqualTo("SFO");
-        assertThat(sfo.hasActiveEvents()).isFalse();
+        assertThat(sfo.events()).isEmpty();
     }
 
     @Test

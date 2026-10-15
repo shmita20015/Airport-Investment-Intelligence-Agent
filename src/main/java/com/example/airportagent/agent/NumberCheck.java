@@ -19,10 +19,13 @@ public final class NumberCheck {
     private static final Pattern IN_SOURCE = Pattern.compile("(?<!\\w)-?(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)");
     private static final double SMALLEST_CHECKED = 10;
 
+    /** Utility class. It has no instance. */
     private NumberCheck() {
     }
 
     /**
+     * Finds the numbers of an answer that no source supports.
+     *
      * @param answer  the text of the answer
      * @param sources texts with allowed numbers: the tool results (JSON). The question of the user is not a source.
      * @return the numbers of the answer that no source supports, in the order of the answer
@@ -53,6 +56,10 @@ public final class NumberCheck {
         return result;
     }
 
+    /**
+     * True if a number of the answer equals a number of a source. A rounded value, a cut value and a percentage of a
+     * share are accepted.
+     */
     private static boolean supported(double shown, double scale, int decimals, Set<Double> allowed) {
         double actual = shown * scale;
         double step = scale * Math.pow(10, -decimals);
@@ -73,6 +80,7 @@ public final class NumberCheck {
         return false;
     }
 
+    /** The factor of the word after a number: million, billion, thousand, or the letters M, B and K. */
     private static double scaleOf(String suffix) {
         if (suffix == null) {
             return 1;
@@ -85,6 +93,7 @@ public final class NumberCheck {
         };
     }
 
+    /** The number of decimal places of a number text. */
     private static int decimals(String digits) {
         int dot = digits.indexOf('.');
         return dot < 0 ? 0 : digits.length() - dot - 1;

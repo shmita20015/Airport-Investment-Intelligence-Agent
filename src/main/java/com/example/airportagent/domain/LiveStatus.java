@@ -12,12 +12,9 @@ import java.util.List;
  */
 public record LiveStatus(String airport, String updateTime, List<Event> events, int restrictionNotices) {
 
+    /** Copies the list of events, so that the record cannot change. */
     public LiveStatus {
         events = List.copyOf(events);
-    }
-
-    public boolean hasActiveEvents() {
-        return !events.isEmpty();
     }
 
     public enum EventType { GROUND_STOP, GROUND_DELAY, DELAY, CLOSURE }

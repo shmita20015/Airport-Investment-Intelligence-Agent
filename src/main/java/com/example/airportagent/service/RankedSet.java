@@ -18,6 +18,7 @@ public class RankedSet {
     private final Set<String> codes;
     private final long minEnplanements;
 
+    /** Creates the set from the airports that have at least the minimum enplanements. */
     public RankedSet(AirportDataset data, ScoringProperties properties) {
         this.minEnplanements = properties.minEnplanements();
         this.codes = data.airports().keySet().stream()
@@ -28,14 +29,17 @@ public class RankedSet {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
+    /** True if the airport is in the ranked set. */
     public boolean contains(String code) {
         return codes.contains(code);
     }
 
+    /** The number of ranked airports. */
     public int size() {
         return codes.size();
     }
 
+    /** The minimum enplanements that an airport needs to be ranked. */
     public long minEnplanements() {
         return minEnplanements;
     }

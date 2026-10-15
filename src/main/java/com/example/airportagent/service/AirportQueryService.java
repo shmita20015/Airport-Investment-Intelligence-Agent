@@ -2,7 +2,7 @@ package com.example.airportagent.service;
 
 import com.example.airportagent.config.ScoringProperties;
 import com.example.airportagent.data.AirportDataset;
-import com.example.airportagent.data.ExpertNotes;
+import com.example.airportagent.config.ExpertNotes;
 import com.example.airportagent.data.FaaStatusClient;
 import com.example.airportagent.domain.Airport;
 import com.example.airportagent.domain.AirportMetrics;
@@ -42,8 +42,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalDouble;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -68,9 +66,11 @@ public class AirportQueryService {
     private final AirportResolver resolver;
     private final FaaStatusClient liveClient;
     private final ExpertNotes expertNotes;
+    private final RegionParser regions;
     private final ScoreCalculator calculator = new ScoreCalculator();
     private final Snapshot snapshot;
 
+    /** Creates the service. It calculates the KPIs and the percentiles of all airports one time. */
     public AirportQueryService(AirportDataset data, MetricsBuilder metrics, ScoringProperties properties,
                                RankedSet rankedSet, EnvelopeFactory envelopes, AirportResolver resolver,
                                FaaStatusClient liveClient, ExpertNotes expertNotes) {
@@ -82,11 +82,13 @@ public class AirportQueryService {
         this.resolver = resolver;
         this.liveClient = liveClient;
         this.expertNotes = expertNotes;
+        this.regions = new RegionParser(properties, data);
         this.snapshot = buildSnapshot(data, metrics, properties, rankedSet);
     }
 
     // ------------------------------------------------------------------ name lookup
 
+    /** Finds the airport for a name or a code. */
     public QueryResult<Resolution> resolveAirport(String text) {
         return resolver.resolve(text);
     }
@@ -112,26 +114,27 @@ public class AirportQueryService {
      *                "congestion:0.5, growth:0.3". The other components share the rest in the ratio of the profile.
      */
     public QueryResult<RankingView> rank(String region, String profileName, Integer topN, String weights) {
-        Optional<WeightProfile> baseProfile = profileFor(profileName);
-        if (baseProfile.isEmpty()) {
+        Optional<WeightProfile> known = profileFor(profileName);
+        if (known.isEmpty()) {
             return unknownProfile(profileName);
         }
-        Optional<WeightProfile> profile;
+        WeightProfile base = known.get();
+        WeightProfile profile;
         try {
-            profile = Optional.of(withCustomWeights(baseProfile.get(), weights));
+            profile = CustomWeights.apply(base, weights);
         } catch (IllegalArgumentException e) {
-            return new QueryResult.NotAvailable<>(e.getMessage(), componentNames());
+            return new QueryResult.NotAvailable<>(e.getMessage(), CustomWeights.componentNames());
         }
         boolean custom = weights != null && !weights.isBlank();
-        RegionFilter regionFilter;
+        RegionParser.Filter regionFilter;
         try {
-            regionFilter = parseRegion(region);
+            regionFilter = regions.parse(region);
         } catch (IllegalArgumentException e) {
-            return new QueryResult.NotAvailable<>(e.getMessage(), knownRegions());
+            return new QueryResult.NotAvailable<>(e.getMessage(), regions.knownRegions());
         }
         int limit = clampTopN(topN);
 
-        List<Score> national = calculator.rank(snapshot.ranked(), profile.get(), Integer.MAX_VALUE);
+        List<Score> national = calculator.rank(snapshot.ranked(), profile, Integer.MAX_VALUE);
 
         List<RankedItem> items = new ArrayList<>();
         int regionRank = 0;
@@ -144,32 +147,34 @@ public class AirportQueryService {
             items.add(new RankedItem(++regionRank, i + 1, AirportRef.of(airport), score));
         }
         String regionText = regionFilter.label();
-        RankingView view = new RankingView(profile.get().name(), regionText, rankedSet.size(),
-                (int) rankedSet.minEnplanements(), weightsOf(profile.get()), items);
+        RankingView view = new RankingView(profile.name(), regionText, rankedSet.size(),
+                (int) rankedSet.minEnplanements(), weightsOf(profile), items);
 
         List<Score> shown = items.stream().map(RankedItem::score).toList();
-        Envelope envelope = envelopes.build(profile.get().name(),
+        Envelope envelope = envelopes.build(profile.name(),
                 Map.of("region", regionText, "topN", String.valueOf(limit),
                         "minEnplanements", String.valueOf(rankedSet.minEnplanements()),
                         "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles()),
-                        "weights", custom ? weights.trim() : "profile " + baseProfile.get().name()),
+                        "weights", custom ? weights.trim() : "profile " + base.name()),
                 lowestConfidence(shown),
-                rankingAssumptions(profile.get(), baseProfile.get(), custom),
+                rankingAssumptions(profile, base, custom),
                 coverageNotes(shown, true),
                 List.of(EnvelopeFactory.NO_PROFIT, "Airports below the size limit are not ranked."));
         if (items.isEmpty()) {
             return new QueryResult.NotAvailable<>("No ranked airport matches the region " + regionText + ".",
-                    knownRegions());
+                    regions.knownRegions());
         }
         return new QueryResult.Ok<>(view, envelope);
     }
 
     // ------------------------------------------------------------------ one airport
 
+    /** The KPIs, the components and the score of one airport. The text can be a code or a name. */
     public QueryResult<AirportProfileView> airportProfile(String code, String profileName) {
         return withAirport(code, airport -> airportProfile(airport, profileName));
     }
 
+    /** The profile of an airport that is already resolved. */
     private QueryResult<AirportProfileView> airportProfile(Airport airport, String profileName) {
         Optional<WeightProfile> profile = profileFor(profileName);
         if (profile.isEmpty()) {
@@ -208,6 +213,8 @@ public class AirportQueryService {
     }
 
     /**
+     * Compares airports. The result says which airport is higher, in the focus value and in each KPI.
+     *
      * @param weights optional custom weights for a profile focus (see {@link #rank(String, String, Integer, String)}).
      *                They do not apply to the focus congestion.
      */
@@ -219,23 +226,23 @@ public class AirportQueryService {
             return new QueryResult.NotAvailable<>("A comparison can have at most " + MAX_COMPARE + " airports.", List.of());
         }
         String focusName = focus == null || focus.isBlank() ? "congestion" : focus.trim().toLowerCase(Locale.ROOT);
-        Optional<WeightProfile> baseProfile = "congestion".equals(focusName)
+        Optional<WeightProfile> known = "congestion".equals(focusName)
                 ? Optional.of(new WeightProfile("congestion", Map.of(Component.CONGESTION, 1.0)))
                 : profileFor(focusName);
-        if (baseProfile.isEmpty()) {
+        if (known.isEmpty()) {
             return unknownProfile(focusName);
         }
-        Optional<WeightProfile> profile;
+        WeightProfile profile;
         if (weights == null || weights.isBlank()) {
-            profile = baseProfile;
+            profile = known.get();
         } else if ("congestion".equals(focusName)) {
             return new QueryResult.NotAvailable<>("Weights do not apply to the focus congestion. "
                     + "Use the focus terminal or general with weights.", List.of("terminal", "general"));
         } else {
             try {
-                profile = Optional.of(withCustomWeights(baseProfile.get(), weights));
+                profile = CustomWeights.apply(known.get(), weights);
             } catch (IllegalArgumentException e) {
-                return new QueryResult.NotAvailable<>(e.getMessage(), componentNames());
+                return new QueryResult.NotAvailable<>(e.getMessage(), CustomWeights.componentNames());
             }
         }
 
@@ -248,7 +255,7 @@ public class AirportQueryService {
             return notInData(String.join(", ", codes));
         }
 
-        List<AirportProfileView> views = found.stream().map(a -> profileView(a, profile.get())).toList();
+        List<AirportProfileView> views = found.stream().map(a -> profileView(a, profile)).toList();
 
         List<String> warnings = new ArrayList<>();
         long hubClasses = found.stream().map(Airport::hubClass).distinct().count();
@@ -263,18 +270,18 @@ public class AirportQueryService {
             }
         }
         List<Placement> order = ComparisonBuilder.focusOrder(views, "congestion".equals(focusName));
-        ComparisonView view = new ComparisonView(focusName, profile.get().name(), views, order,
+        ComparisonView view = new ComparisonView(focusName, profile.name(), views, order,
                 ComparisonBuilder.focusGap(order), ComparisonBuilder.kpiComparisons(views), warnings);
 
         List<Score> scores = views.stream().map(AirportProfileView::score).filter(s -> s != null).toList();
-        Envelope envelope = envelopes.build(profile.get().name(),
+        Envelope envelope = envelopes.build(profile.name(),
                 Map.of("focus", focusName, "airports", String.join(",", found.stream().map(Airport::iata).toList()),
                         "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
                 lowestConfidence(scores),
                 List.of("congestion".equals(focusName)
                                 ? "The congestion component is the mean of the percentiles of the delay rate, the taxi-out "
                                 + "time, the cancellation rate and the operations per runway. Missing KPIs are removed."
-                                : describe(profile.get()),
+                                : describe(profile),
                         "The operations per runway KPI assumes that arrivals equal departures and that all runways are independent.",
                         "Code decides which airport is higher (focusOrder and kpiComparisons). A higher percentile means more "
                                 + "pressure for every KPI, for example more delay, a longer taxi-out time or more operations per runway."),
@@ -299,6 +306,7 @@ public class AirportQueryService {
         return withAirport(code, airport -> longHaul(airport, minMiles));
     }
 
+    /** The long-haul share of an airport that is already resolved. */
     private QueryResult<LongHaulView> longHaul(Airport airport, Integer minMiles) {
         int limit = minMiles == null ? properties.defaultLongHaulMiles() : minMiles;
         if (limit < 0) {
@@ -345,6 +353,7 @@ public class AirportQueryService {
         return withAirport(code, airport -> unmetDemand(airport));
     }
 
+    /** The unmet demand index of an airport that is already resolved. */
     private QueryResult<UnmetDemandView> unmetDemand(Airport airport) {
         WeightProfile profile = properties.unmetDemandProfile();
         AirportMetrics airportMetrics = snapshot.all().get(airport.iata());
@@ -381,6 +390,7 @@ public class AirportQueryService {
         return withAirport(code, airport -> liveStatus(airport));
     }
 
+    /** The live status of an airport that is already resolved. */
     private QueryResult<LiveStatusView> liveStatus(Airport airport) {
         try {
             LiveStatus status = liveClient.statusOf(airport.iata());
@@ -419,6 +429,7 @@ public class AirportQueryService {
         return new QueryResult.Ok<>(view, envelope);
     }
 
+    /** The weights of a profile by component name, from high to low. */
     private static Map<String, Double> weightsOf(WeightProfile profile) {
         Map<String, Double> weights = new LinkedHashMap<>();
         profile.weights().entrySet().stream()
@@ -465,6 +476,7 @@ public class AirportQueryService {
                 : Optional.empty();
     }
 
+    /** The KPIs, the components and the score of an airport, against the ranked airports. */
     private AirportProfileView profileView(Airport airport, WeightProfile profile) {
         AirportMetrics airportMetrics = snapshot.all().get(airport.iata());
         Map<Component, Double> components = new EnumMap<>(Component.class);
@@ -486,15 +498,13 @@ public class AirportQueryService {
                 score, components, kpis);
     }
 
+    /** The percentile of a KPI value among the ranked airports, or null if no airport has the KPI. */
     private Double percentile(Kpi kpi, double value) {
         OptionalDouble percentile = snapshot.peers().rank(kpi, value);
         return percentile.isPresent() ? percentile.getAsDouble() : null;
     }
 
-    private static List<String> componentNames() {
-        return java.util.Arrays.stream(Component.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).toList();
-    }
-
+    /** The assumptions of a ranking result. */
     private static List<String> rankingAssumptions(WeightProfile profile, WeightProfile base, boolean custom) {
         List<String> assumptions = new ArrayList<>();
         assumptions.add(describe(profile));
@@ -509,125 +519,30 @@ public class AirportQueryService {
         return assumptions;
     }
 
-    /**
-     * Applies the custom weights of the user to a profile. A weight is a fraction (0.25) or a percentage (25 or 25%).
-     * Format: component:weight, separated by commas, for example "scale:0, congestion:0.5".
-     *
-     * @throws IllegalArgumentException with a clear message if the text is not valid
-     */
-    private static WeightProfile withCustomWeights(WeightProfile base, String text) {
-        if (text == null || text.isBlank()) {
-            return base;
-        }
-        Map<Component, Double> fixed = new java.util.EnumMap<>(Component.class);
-        for (String part : text.split("[,;]")) {
-            if (part.isBlank()) {
-                continue;
-            }
-            String[] pair = part.trim().split("[:=]");
-            if (pair.length != 2) {
-                throw new IllegalArgumentException("Cannot read the weight \"" + part.trim()
-                        + "\". Use the format component:weight, for example scale:0.");
-            }
-            Component component;
-            try {
-                component = Component.valueOf(pair[0].trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_'));
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Unknown component \"" + pair[0].trim() + "\".");
-            }
-            fixed.put(component, parseWeight(pair[1].trim()));
-        }
-        if (fixed.isEmpty()) {
-            return base;
-        }
-        return base.withOverrides("custom", fixed);
-    }
-
-    private static double parseWeight(String text) {
-        boolean percent = text.endsWith("%");
-        try {
-            double value = Double.parseDouble(percent ? text.substring(0, text.length() - 1).trim() : text);
-            if (percent || value > 1.0) {
-                value = value / 100.0;
-            }
-            if (value > 1.0) {
-                throw new IllegalArgumentException("A weight cannot be more than 100%.");
-            }
-            return value;
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Cannot read the number \"" + text + "\" as a weight.");
-        }
-    }
-
+    /** The profile with this name (the default profile if the name is empty), or empty if there is none. */
     private Optional<WeightProfile> profileFor(String name) {
         String key = name == null || name.isBlank() ? DEFAULT_PROFILE : name.trim().toLowerCase(Locale.ROOT);
         return properties.profiles().containsKey(key) ? Optional.of(properties.profile(key)) : Optional.empty();
     }
 
+    /** The answer for an unknown profile name. It lists the known names. */
     private <T> QueryResult<T> unknownProfile(String name) {
         return new QueryResult.NotAvailable<>("Unknown weight profile: " + name + ".",
                 properties.profiles().keySet().stream().sorted().toList());
     }
 
+    /** The answer for an airport that is not in the data. */
     private <T> QueryResult<T> notInData(String text) {
         return new QueryResult.OutOfScope<>("No airport for \"" + text + "\" is in the data.",
                 AirportResolver.SCOPE_RULE);
     }
 
-    /** The states of a region filter. An empty set means the whole country. */
-    private record RegionFilter(String label, Set<String> states) {
-        boolean contains(Airport airport) {
-            return states.isEmpty() || states.contains(airport.state());
-        }
-    }
-
-    /**
-     * Reads a region text: a region name from the settings, a state code, or a comma list of both.
-     * The state of an airport is a US state code, or a territory code (for example PR).
-     */
-    private RegionFilter parseRegion(String text) {
-        if (text == null || text.isBlank()) {
-            return new RegionFilter("ALL", Set.of());
-        }
-        Set<String> states = new TreeSet<>();
-        List<String> labels = new ArrayList<>();
-        for (String token : text.split(",")) {
-            String key = token.trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
-            if (key.isEmpty()) {
-                continue;
-            }
-            if (Set.of("ALL", "US", "USA", "NATIONAL").contains(key)) {
-                return new RegionFilter("ALL", Set.of());
-            }
-            if (properties.regions().containsKey(key)) {
-                states.addAll(properties.regions().get(key));
-            } else if (knownStates().contains(key)) {
-                states.add(key);
-            } else {
-                throw new IllegalArgumentException("Unknown region: " + token.trim() + ".");
-            }
-            labels.add(key);
-        }
-        return states.isEmpty() ? new RegionFilter("ALL", Set.of())
-                : new RegionFilter(String.join(",", labels), Set.copyOf(states));
-    }
-
-    private Set<String> knownStates() {
-        return data.airports().values().stream().map(Airport::state).collect(Collectors.toSet());
-    }
-
-    /** The region names that the caller can use. */
-    private List<String> knownRegions() {
-        List<String> names = new ArrayList<>(properties.regions().keySet().stream().sorted().toList());
-        names.add("ALL");
-        names.add("or a state code, for example TX, or a comma list such as CA,OR,WA");
-        return names;
-    }
-
+    /** The number of airports to return, from 1 to the maximum. */
     private static int clampTopN(Integer topN) {
         return topN == null ? DEFAULT_TOP_N : Math.max(1, Math.min(MAX_TOP_N, topN));
     }
 
+    /** The lowest confidence of a list of scores. An empty list gives LOW. */
     private static Confidence lowestConfidence(List<Score> scores) {
         return scores.stream().map(Score::confidence).max(Comparator.comparingInt(Enum::ordinal)).orElse(Confidence.LOW);
     }
@@ -652,16 +567,19 @@ public class AirportQueryService {
         return notes;
     }
 
+    /** A short text of the weights of a profile. */
     private static String describe(WeightProfile profile) {
         return "Profile " + profile.name() + ": " + describeWeights(profile) + ". These weights are heuristics.";
     }
 
+    /** The weights as text, for example 0.25 x congestion + 0.20 x growth. */
     private static String describeWeights(WeightProfile profile) {
         return weightsOf(profile).entrySet().stream()
                 .map(e -> String.format(Locale.ROOT, "%.2f x %s", e.getValue(), e.getKey()))
                 .collect(Collectors.joining(" + "));
     }
 
+    /** An optional number as a value that can be null, for JSON. */
     private static Double boxed(OptionalDouble value) {
         return value.isPresent() ? value.getAsDouble() : null;
     }

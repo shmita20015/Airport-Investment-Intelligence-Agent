@@ -21,6 +21,7 @@ final class ComparisonBuilder {
     /** A percentile gap below this value is a tie. */
     static final double TIE_POINTS = 0.05;
 
+    /** Utility class. It has no instance. */
     private ComparisonBuilder() {}
 
     /**

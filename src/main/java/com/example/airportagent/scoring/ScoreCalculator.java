@@ -135,6 +135,7 @@ public final class ScoreCalculator {
         return raw.isPresent() ? peers.rank(kpi, raw.getAsDouble()) : OptionalDouble.empty();
     }
 
+    /** True if a KPI of the component is a proxy and not a direct measure. */
     private static boolean usesProxy(AirportMetrics airport, Component component) {
         return component.kpis().stream()
                 .anyMatch(kpi -> airport.kpi(kpi) instanceof MetricValue.Proxy);

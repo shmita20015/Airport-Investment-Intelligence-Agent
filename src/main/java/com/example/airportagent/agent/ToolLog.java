@@ -38,10 +38,12 @@ public final class ToolLog {
         return attempts <= MAX_CALLS_PER_TURN;
     }
 
+    /** Records the result of one tool call in this turn. */
     public synchronized void record(String tool, String json) {
         turn.add(new Call(tool, json));
     }
 
+    /** The tool calls of this turn. */
     public synchronized List<Call> turnCalls() {
         return List.copyOf(turn);
     }

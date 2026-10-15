@@ -14,6 +14,7 @@ public record WeightProfile(String name, Map<Component, Double> weights) {
 
     private static final double TOLERANCE = 1e-6;
 
+    /** Checks the weights. Each weight is zero or more, and they add up to 1.0. */
     public WeightProfile {
         weights = Map.copyOf(weights);
         double sum = 0;
@@ -29,6 +30,7 @@ public record WeightProfile(String name, Map<Component, Double> weights) {
         }
     }
 
+    /** The weight of a component. A component that is not in the profile has the weight 0. */
     public double weight(Component component) {
         return weights.getOrDefault(component, 0.0);
     }

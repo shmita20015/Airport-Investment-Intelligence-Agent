@@ -26,10 +26,12 @@ public record AirportDataset(Map<String, Airport> airports,
                              Map<String, String> aliases,
                              DatasetInfo info) {
 
+    /** The airport for a code (any letter case), or empty. */
     public Optional<Airport> airport(String code) {
         return Optional.ofNullable(code == null ? null : airports.get(code.trim().toUpperCase(Locale.ROOT)));
     }
 
+    /** The distance buckets of an airport. The list is empty if the airport has no T-100 departures. */
     public List<BucketRow> bucketsOf(String code) {
         return buckets.getOrDefault(code, List.of());
     }

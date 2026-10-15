@@ -14,6 +14,7 @@ import java.util.List;
 public record Score(String iata, String profile, double value, double coverage, Confidence confidence,
                     List<Contribution> contributions, List<Component> missingComponents, List<Kpi> missingKpis) {
 
+    /** Copies the lists, so that the record cannot change. */
     public Score {
         contributions = List.copyOf(contributions);
         missingComponents = List.copyOf(missingComponents);

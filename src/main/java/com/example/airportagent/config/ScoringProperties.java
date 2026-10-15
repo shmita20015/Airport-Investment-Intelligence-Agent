@@ -29,6 +29,7 @@ public record ScoringProperties(
         return new WeightProfile(name, weights);
     }
 
+    /** The weight profile of the unmet demand index. */
     public WeightProfile unmetDemandProfile() {
         return new WeightProfile("unmet-demand", unmetDemand);
     }

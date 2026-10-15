@@ -26,19 +26,18 @@ public final class AirportDataLoader {
 
     private static final String BASE = "data/";
 
+    /** Reads all CSV files and the manifest into one AirportDataset. */
     public AirportDataset load() {
         Map<String, Airport> airports = new LinkedHashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "airports.csv")) {
             String code = row.get("iata");
             airports.put(code, new Airport(code, row.get("faa_id"), row.get("name"), row.get("city"),
-                    row.get("state"), number(row.get("lat")).orElse(Double.NaN),
-                    number(row.get("lon")).orElse(Double.NaN),
-                    integer(row.get("runway_count")), HubClass.fromFaaCode(row.get("hub_class"))));
+                    row.get("state"), integer(row.get("runway_count")), HubClass.fromFaaCode(row.get("hub_class"))));
         }
 
         Map<String, TrafficRow> traffic = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "traffic.csv")) {
-            traffic.put(row.get("iata"), new TrafficRow(row.get("iata"), integer(row.get("year")),
+            traffic.put(row.get("iata"), new TrafficRow(row.get("iata"),
                     number(row.get("pax")).orElse(0), number(row.get("seats")).orElse(0),
                     number(row.get("departures_pax")).orElse(0), number(row.get("departures_cargo")).orElse(0)));
         }
@@ -52,7 +51,7 @@ public final class AirportDataLoader {
 
         Map<String, OntimeRow> ontime = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "ontime.csv")) {
-            ontime.put(row.get("iata"), new OntimeRow(row.get("iata"), integer(row.get("year")),
+            ontime.put(row.get("iata"), new OntimeRow(row.get("iata"),
                     (long) number(row.get("flights")).orElse(0), number(row.get("delay15_rate")),
                     number(row.get("cancel_rate")), number(row.get("avg_taxi_out_min"))));
         }
@@ -60,7 +59,7 @@ public final class AirportDataLoader {
         Map<String, EnplanementRow> enplanements = new HashMap<>();
         for (Map<String, String> row : Csv.readResource(BASE + "enplanements.csv")) {
             enplanements.put(row.get("iata"), new EnplanementRow(row.get("iata"), whole(row.get("enpl_cy23")),
-                    whole(row.get("enpl_cy24")), whole(row.get("enpl_cy25"))));
+                    whole(row.get("enpl_cy25"))));
         }
 
         Map<String, String> aliases = new HashMap<>();
@@ -72,6 +71,7 @@ public final class AirportDataLoader {
                 Map.copyOf(ontime), Map.copyOf(enplanements), Map.copyOf(aliases), readInfo());
     }
 
+    /** Reads the data year and the build time from manifest.json. */
     private static DatasetInfo readInfo() {
         try (InputStream stream = AirportDataLoader.class.getClassLoader().getResourceAsStream(BASE + "manifest.json")) {
             if (stream == null) {
@@ -84,6 +84,7 @@ public final class AirportDataLoader {
         }
     }
 
+    /** A number from a text. An empty text gives an empty value, never zero. */
     private static OptionalDouble number(String text) {
         if (text == null || text.isBlank()) {
             return OptionalDouble.empty();
@@ -91,6 +92,7 @@ public final class AirportDataLoader {
         return OptionalDouble.of(Double.parseDouble(text.trim()));
     }
 
+    /** A whole number from a text. An empty text gives an empty value. */
     private static OptionalLong whole(String text) {
         OptionalDouble value = number(text);
         return value.isPresent() ? OptionalLong.of((long) value.getAsDouble()) : OptionalLong.empty();

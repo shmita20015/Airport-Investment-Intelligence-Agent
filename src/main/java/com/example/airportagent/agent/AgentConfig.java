@@ -17,6 +17,7 @@ public class AgentConfig {
     /** The chat memory keeps the last messages of each session. A restart clears it. */
     static final int MEMORY_MESSAGES = 20;
 
+    /** The chat memory. It keeps the last messages of each session in memory. */
     @Bean
     ChatMemory chatMemory() {
         return MessageWindowChatMemory.builder()
@@ -25,6 +26,7 @@ public class AgentConfig {
                 .build();
     }
 
+    /** The chat client with the system prompt, the tools and the chat memory. */
     @Bean
     ChatClient airportChatClient(ChatClient.Builder builder, AirportTools tools, ChatMemory memory,
                                  @Value("classpath:prompts/system.txt") Resource systemPrompt) {

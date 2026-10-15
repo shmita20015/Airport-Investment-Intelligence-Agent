@@ -11,7 +11,12 @@ import org.xml.sax.InputSource;
 
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
+
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,7 +25,6 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
 /**
@@ -36,30 +40,31 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
     /** A call to the FAA service. A test can replace it. */
     @FunctionalInterface
     interface Fetcher {
+        /** Calls the FAA service and returns the XML text. */
         String fetch() throws IOException;
     }
 
-    private record Cached(String body, long takenAtNanos) {}
-
     private final Fetcher fetcher;
-    private final long ttlNanos;
-    private final LongSupplier nanoClock;
-    private volatile Cached cached;
+    /** The answer of the FAA service has one entry. It expires after the cache time. A failed call is not kept. */
+    private final Cache<String, String> answer;
 
     /**
+     * Creates the client of the live FAA status service.
+     *
      * @param cacheTtl the answer of the FAA service is kept for this time. A heavy load of questions
      *                 then makes one call to the FAA, and not one call for each question.
      */
     public HttpFaaStatusClient(String url, Duration timeout, Duration cacheTtl) {
-        this(httpFetcher(URI.create(url), timeout), cacheTtl, System::nanoTime);
+        this(httpFetcher(URI.create(url), timeout), cacheTtl, Ticker.systemTicker());
     }
 
-    HttpFaaStatusClient(Fetcher fetcher, Duration cacheTtl, LongSupplier nanoClock) {
+    /** Creates the client with a fetcher and a clock that a test can replace. */
+    HttpFaaStatusClient(Fetcher fetcher, Duration cacheTtl, Ticker ticker) {
         this.fetcher = fetcher;
-        this.ttlNanos = cacheTtl.toNanos();
-        this.nanoClock = nanoClock;
+        this.answer = Caffeine.newBuilder().expireAfterWrite(cacheTtl).ticker(ticker).build();
     }
 
+    /** The real fetcher: one HTTP call to the FAA service, with a time limit. */
     private static Fetcher httpFetcher(URI url, Duration timeout) {
         HttpClient http = HttpClient.newBuilder().connectTimeout(timeout).build();
         return () -> {
@@ -77,21 +82,25 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
         };
     }
 
+    /** The live status of an airport, from the cached answer or from a new call to the FAA service. */
     @Override
     public LiveStatus statusOf(String airportCode) throws IOException {
         return parse(body(), airportCode);
     }
 
-    /** The answer of the FAA service. A failed call is not kept, so the next question tries again. */
+    /** The answer of the FAA service, from the cache or from a new call. */
     private String body() throws IOException {
-        Cached current = cached;
-        long now = nanoClock.getAsLong();
-        if (current != null && now - current.takenAtNanos() < ttlNanos) {
-            return current.body();
+        try {
+            return answer.get("faa", key -> {
+                try {
+                    return fetcher.fetch();
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
         }
-        String body = fetcher.fetch();
-        cached = new Cached(body, now);
-        return body;
     }
 
     /** Read the FAA XML. This method has no network call, so a test can use it with a fixed text. */
@@ -128,6 +137,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
         }
     }
 
+    /** The event type for the name of an FAA list. */
     private static EventType typeOf(String name) {
         String lower = name.toLowerCase();
         if (lower.contains("ground stop")) {
@@ -142,6 +152,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
         return EventType.DELAY;
     }
 
+    /** The XML elements of a list that name an airport. */
     private static List<Element> entriesWithAirport(Element delayType) {
         List<Element> result = new ArrayList<>();
         NodeList all = delayType.getElementsByTagName("*");
@@ -157,6 +168,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
         return result;
     }
 
+    /** The extra fields of an FAA entry, as cleaned text. */
     private static String details(Element entry) {
         StringBuilder details = new StringBuilder();
         for (Node child = entry.getFirstChild(); child != null; child = child.getNextSibling()) {
@@ -171,6 +183,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
         return UntrustedText.clean(details.toString());
     }
 
+    /** The text of the first child element with this tag, or an empty text. */
     private static String text(Element parent, String tag) {
         NodeList nodes = parent.getElementsByTagName(tag);
         return nodes.getLength() == 0 ? "" : nodes.item(0).getTextContent().trim();

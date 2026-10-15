@@ -14,6 +14,7 @@ import java.util.List;
 public record ApiResponse<T>(String status, T data, Envelope envelope, List<String> missing, String reason,
                              List<String> whatIsAvailable, String scopeRule) {
 
+    /** Converts a result of the service to the JSON body. */
     public static <T> ApiResponse<T> of(QueryResult<T> result) {
         return switch (result) {
             case QueryResult.Ok<T> ok -> new ApiResponse<>("OK", ok.data(), ok.envelope(), List.of(), null, List.of(), null);

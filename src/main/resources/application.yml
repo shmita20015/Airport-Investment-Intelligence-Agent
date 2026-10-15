@@ -67,6 +67,17 @@ airport:
       LOWER_48: [AL, AR, AZ, CA, CO, CT, DC, DE, FL, GA, IA, ID, IL, IN, KS, KY, LA, MA, MD, ME, MI, MN, MO, MS, MT, NC, ND, NE, NH, NJ, NM, NV, NY, OH, OK, OR, PA, RI, SC, SD, TN, TX, UT, VA, VT, WA, WI, WV, WY]
       TERRITORIES: [PR, VI, GU, MP, AS]
 
+  # Notes from general knowledge. They are never inputs of a score. A result labels them as expert notes.
+  notes:
+    SFO:
+      text: >-
+        SFO has parallel runways that are close to each other. In low visibility they cannot work as independent
+        runways, so the real capacity is lower than the number of runways suggests. The operations per runway KPI
+        does not show this.
+      source: >-
+        Known airfield layout and FAA rules for close parallel runways. This is an expert note. It is not calculated
+        from the data files. Check it with the FAA before you use it.
+
   live:
     # The live FAA call. It shows the current delay status. It is not a score input.
     faa-status-url: https://nasstatus.faa.gov/api/airport-status-information

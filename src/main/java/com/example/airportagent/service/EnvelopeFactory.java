@@ -26,12 +26,14 @@ public class EnvelopeFactory {
     private final RankedSet rankedSet;
     private final Clock clock;
 
+    /** Creates the factory with the data, the ranked set and the clock. */
     public EnvelopeFactory(AirportDataset data, RankedSet rankedSet, Clock clock) {
         this.data = data;
         this.rankedSet = rankedSet;
         this.clock = clock;
     }
 
+    /** Builds the envelope of a result: the assumptions, the uncertainties, the sources and the confidence. */
     public Envelope build(String profile, Map<String, String> parameters, Confidence confidence,
                           List<String> extraAssumptions, List<String> extraUncertainties, List<String> outOfScope) {
         int year = data.info().dataYear();
@@ -64,6 +66,7 @@ public class EnvelopeFactory {
         return build(null, Map.of(), Confidence.HIGH, List.of(), List.of(), List.of());
     }
 
+    /** The age of the data files in days. It is 0 if the date cannot be read. */
     private long ageInDays() {
         try {
             return Duration.between(Instant.parse(data.info().generated()), clock.instant()).toDays();

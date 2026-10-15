@@ -31,11 +31,13 @@ public class AirportResolver {
     private final AirportDataset data;
     private final EnvelopeFactory envelopes;
 
+    /** Creates the resolver with the data and the envelope factory. */
     public AirportResolver(AirportDataset data, EnvelopeFactory envelopes) {
         this.data = data;
         this.envelopes = envelopes;
     }
 
+    /** Converts a name or a code to an airport. The comment of the class gives the order of the matches. */
     public QueryResult<Resolution> resolve(String text) {
         if (text == null || text.isBlank()) {
             return new QueryResult.OutOfScope<>("The airport name is empty.", SCOPE_RULE);
@@ -77,11 +79,13 @@ public class AirportResolver {
                 resolved ? List.of() : sorted), envelopes.minimal());
     }
 
+    /** The airports that match a filter, tagged with the kind of match. */
     private List<Candidate> tier(String matchedBy, Predicate<Airport> filter) {
         return data.airports().values().stream().filter(filter)
                 .map(a -> new Candidate(AirportRef.of(a), matchedBy)).toList();
     }
 
+    /** The size of an airport (enplanements CY25) for sorting. It is 0 if the size is not known. */
     private long size(String code) {
         var enplanement = data.enplanements().get(code);
         return enplanement == null ? 0 : enplanement.cy25().orElse(0);

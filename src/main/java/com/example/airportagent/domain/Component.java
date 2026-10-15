@@ -14,6 +14,7 @@ public enum Component {
 
     private final List<Kpi> kpis;
 
+    /** Creates a component with its KPIs. */
     Component(List<Kpi> kpis) {
         this.kpis = kpis;
     }

@@ -17,10 +17,12 @@ public class ChatController {
 
     private final ChatService chat;
 
+    /** Creates the controller with the chat service. */
     public ChatController(ChatService chat) {
         this.chat = chat;
     }
 
+    /** Answers one chat question. A bad message gives HTTP 400. A busy chat gives HTTP 503. */
     @PostMapping("/chat")
     public ResponseEntity<?> chat(@RequestBody ChatRequest request) {
         if (request == null || request.message() == null || request.message().isBlank()) {

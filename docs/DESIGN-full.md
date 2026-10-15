@@ -105,7 +105,7 @@ RUN TIME
 
 ```
 com.example.airportagent
-├── data/      Loaders for the CSV files, ExpertNotes, FaaStatusClient (the live call)
+├── data/      Loaders for the CSV files, FaaStatusClient (the live call, cached for 30 seconds)
 ├── domain/    Java records: Airport, AirportMetrics, MetricValue, Score, Contribution, HubClass, Envelope
 ├── scoring/   Percentiles, WeightProfile, ScoreCalculator, UnmetDemandIndex, LongHaulCalculator
 │              (no Spring, no AI)
@@ -199,7 +199,6 @@ All files go in `src/main/resources/data/`.
 | `faa_id` | The FAA location ID (OurAirports `local_code`). |
 | `name`, `city` | Text for display. |
 | `state` | The US state code, or the territory code (for example PR). A region is a list of state codes in `application.yml` (`airport.scoring.regions`). |
-| `lat`, `lon` | Coordinates. |
 | `runway_count` | Number of open runways in `runways.csv`. |
 | `hub_class` | `L`, `M`, `S` or `N` from the FAA `Hub` column. |
 
@@ -211,7 +210,6 @@ All files go in `src/main/resources/data/`.
 | `seats` | Seats on those flights. |
 | `departures_pax` | Departures performed on passenger flights. |
 | `departures_cargo` | Departures performed on cargo-only flights. |
-| `year` | Data year. |
 
 **`distance_buckets.csv`** (several rows for each airport, from T-100)
 
@@ -232,7 +230,7 @@ All files go in `src/main/resources/data/`.
 | `avg_taxi_out_min` | Mean taxi-out time. |
 
 **`enplanements.csv`** (one row for each airport, from FAA)
-`enpl_cy23`, `enpl_cy24`, `enpl_cy25`, `faa_rank_cy25`.
+`enpl_cy23` and `enpl_cy25`. (The CY2024 value and the FAA rank are not saved. Nothing uses them. The data year of all files is in `manifest.json`.)
 
 **`aliases.csv`** (written by hand)
 `alias,iata`. Examples: `LA,LAX`, `Los Angeles,LAX`, `Santa Ana,SNA`, `PBI,DJT`.
@@ -427,7 +425,7 @@ The result is the same on each run.
 - The result always has the label `PROXY` and a text that says what the index is and is not.
 - The weights are **PROPOSED**. The analyst can change them.
 - The "why" comes from the contributions of the components, sorted by points.
-- The tool adds an expert note for SFO (file `airport_notes.csv`): the close-parallel runways cannot operate independently in low visibility. The `opsPerRunway` KPI does not show this. The result labels the note with its source text: "expert note, not calculated from the data files, check it with the FAA before use". It is never a score input.
+- The tool adds an expert note for SFO (in `application.yml`, section `airport.notes`): the close-parallel runways cannot operate independently in low visibility. The `opsPerRunway` KPI does not show this. The result labels the note with its source text: "expert note, not calculated from the data files, check it with the FAA before use". It is never a score input.
 
 ### 6.9 Score trace (for the explanation)
 Each score has a list of `Contribution` records:

@@ -18,8 +18,10 @@ public final class Percentiles {
 
     private final Map<Kpi, double[]> peerValues = new EnumMap<>(Kpi.class);
 
+    /** Creates an empty set. Use of(...) to fill it. */
     private Percentiles() {}
 
+    /** Collects the values of each KPI of the peer airports. */
     public static Percentiles of(Collection<AirportMetrics> peers) {
         Percentiles result = new Percentiles();
         for (Kpi kpi : Kpi.values()) {

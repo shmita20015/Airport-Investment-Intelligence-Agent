@@ -13,6 +13,7 @@ public final class LongHaulCalculator {
 
     public static final int BUCKET_MILES = 500;
 
+    /** Utility class. It has no instance. */
     private LongHaulCalculator() {}
 
     /** The departures that start in a distance bucket (the lower edge of the bucket is minMiles). */
@@ -21,11 +22,13 @@ public final class LongHaulCalculator {
     public record Result(OptionalDouble share, int limitRequested, int limitUsed, boolean includesCargo,
                          double longHaulDepartures, double totalDepartures) {
 
+        /** True if the requested limit was not a multiple of the bucket width and was rounded down. */
         public boolean limitWasRounded() {
             return limitRequested != limitUsed;
         }
     }
 
+    /** The long-haul share: the departures in the buckets at or above the limit, divided by all departures. */
     public static Result share(Collection<Bucket> buckets, int limitMiles, boolean includeCargo) {
         if (limitMiles < 0) {
             throw new IllegalArgumentException("The limit must be zero or more.");

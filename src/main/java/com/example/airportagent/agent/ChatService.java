@@ -13,7 +13,6 @@ import org.springframework.core.NestedExceptionUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -43,6 +42,7 @@ public class ChatService {
     /** The sessions of the app. An idle session and the oldest sessions are deleted, with their chat history. */
     private final Cache<String, ToolLog> sessions;
 
+    /** Creates the service with the chat client, the chat memory, the limits and the API key setting. */
     public ChatService(ChatClient client, ChatMemory memory, LimitProperties limits,
                        @Value("${spring.ai.google.genai.api-key:}") String apiKey) {
         this.client = client;
@@ -56,6 +56,8 @@ public class ChatService {
     }
 
     /**
+     * Answers one question of a user and checks the numbers of the answer.
+     *
      * @param sessionId the session id from an earlier reply. The app never accepts an id that it did not give,
      *                  so a client cannot choose or guess the session of another client. An unknown id starts
      *                  a new session.
@@ -87,6 +89,7 @@ public class ChatService {
         }
     }
 
+    /** Takes one chat slot. It throws ChatBusyException if no slot is free after the wait time. */
     private void acquireSlot() {
         try {
             if (!slots.tryAcquire(SLOT_WAIT.toMillis(), TimeUnit.MILLISECONDS)) {
@@ -98,10 +101,15 @@ public class ChatService {
         }
     }
 
+    /** Removes control characters and invisible marks from the text of the user. */
     static String cleanMessage(String message) {
         return CONTROL.matcher(message).replaceAll(" ").trim();
     }
 
+    /**
+     * Asks the LLM and checks the numbers. If a number fails, it asks one more time. If it fails again, it gives the
+     * template answer.
+     */
     private ChatReply answer(String session, String message, ToolLog log) {
         String reply = ask(session, message, log);
         List<String> unsupported = NumberCheck.unsupported(reply, log.allJson());
@@ -118,6 +126,7 @@ public class ChatService {
         return new ChatReply(session, OutputGuard.neutralize(reply, log.allJson()), true, toolNames(log), List.of());
     }
 
+    /** One call to the LLM, with the chat memory of the session and the tool log of the session. */
     private String ask(String session, String message, ToolLog log) {
         String content = client.prompt()
                 .user(message)
@@ -128,6 +137,7 @@ public class ChatService {
         return content == null ? "" : content.trim();
     }
 
+    /** The names of the tools that the agent called in this turn. */
     private static List<String> toolNames(ToolLog log) {
         return log.turnCalls().stream().map(ToolLog.Call::tool).toList();
     }
@@ -148,6 +158,7 @@ public class ChatService {
         return text.toString();
     }
 
+    /** A short reason for the user, from the root cause of a failed LLM call. */
     private static String shortReason(RuntimeException e) {
         Throwable cause = NestedExceptionUtils.getMostSpecificCause(e);
         String message = cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage();

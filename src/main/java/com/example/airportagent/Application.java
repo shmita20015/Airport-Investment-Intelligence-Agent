@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @ConfigurationPropertiesScan
 public class Application {
 
+    /** Starts the application. */
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }

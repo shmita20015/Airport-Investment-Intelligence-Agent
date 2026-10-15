@@ -13,11 +13,13 @@ import java.util.Map;
 /** The data that the service returns. The REST API and the agent tools use these records. */
 public final class Views {
 
+    /** Utility class. It has no instance. */
     private Views() {}
 
     public record AirportRef(String iata, String name, String city, String state,
                              HubClass hubClass, int runwayCount) {
 
+        /** Creates the view of an airport. */
         public static AirportRef of(Airport airport) {
             return new AirportRef(airport.iata(), airport.name(), airport.city(), airport.state(),
                     airport.hubClass(), airport.runwayCount());

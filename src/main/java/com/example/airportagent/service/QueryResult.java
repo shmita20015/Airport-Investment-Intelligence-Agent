@@ -15,6 +15,7 @@ public sealed interface QueryResult<T> {
 
     /** The result has data, but some parts are missing. */
     record Partial<T>(T data, List<String> missing, Envelope envelope) implements QueryResult<T> {
+        /** Copies the list of missing parts. */
         public Partial {
             missing = List.copyOf(missing);
         }
@@ -22,6 +23,7 @@ public sealed interface QueryResult<T> {
 
     /** The data does not exist, or the question has no answer in the data. */
     record NotAvailable<T>(String reason, List<String> whatIsAvailable) implements QueryResult<T> {
+        /** Copies the list of what is available. */
         public NotAvailable {
             whatIsAvailable = List.copyOf(whatIsAvailable);
         }

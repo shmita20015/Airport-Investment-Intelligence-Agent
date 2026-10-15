@@ -16,9 +16,12 @@ public final class OutputGuard {
     private static final Pattern LINK =
             Pattern.compile("(?i)\\b(?:https?|ftp)://[^\\s)\\]>\"]+|\\bwww\\.[^\\s)\\]>\"]+");
 
+    /** Utility class. It has no instance. */
     private OutputGuard() {}
 
     /**
+     * Removes images and links from an answer. A link is kept only if a tool result has it.
+     *
      * @param sources texts that may hold an allowed link: the tool results
      */
     public static String neutralize(String answer, Collection<String> sources) {

@@ -19,6 +19,7 @@ public record Envelope(List<String> assumptions, List<String> uncertainties, Lis
                        Confidence confidence, List<String> sources, String asOf, String profile,
                        Map<String, String> parameters) {
 
+    /** Copies the lists and the map, so that the record cannot change. */
     public Envelope {
         assumptions = List.copyOf(assumptions);
         uncertainties = List.copyOf(uncertainties);

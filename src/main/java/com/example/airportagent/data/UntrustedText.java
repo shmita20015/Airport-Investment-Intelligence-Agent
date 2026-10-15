@@ -14,8 +14,10 @@ public final class UntrustedText {
     private static final Pattern SPACES = Pattern.compile("\\s+");
     private static final Pattern LINK = Pattern.compile("(?i)\\b(?:https?|ftp)://\\S+|\\bwww\\.\\S+");
 
+    /** Utility class. It has no instance. */
     private UntrustedText() {}
 
+    /** Cleans a text from an outside source. See the comment of the class. */
     public static String clean(String text) {
         if (text == null) {
             return "";

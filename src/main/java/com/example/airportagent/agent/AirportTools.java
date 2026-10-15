@@ -22,11 +22,13 @@ public class AirportTools {
     private final AirportQueryService service;
     private final JsonMapper json;
 
+    /** Creates the tools with the engine and the JSON writer that records the tool results. */
     public AirportTools(AirportQueryService service, JsonMapper json) {
         this.service = service;
         this.json = json;
     }
 
+    /** Tool: ranks the airports of a region with a weight profile, and with custom weights if the user gives them. */
     @Tool(description = "Rank US airports by an opportunity score. Use it for questions about the best candidates for "
             + "terminal expansion or investment. The percentiles are national. The region only filters the list.")
     public ApiResponse<?> rankAirports(
@@ -43,6 +45,7 @@ public class AirportTools {
         return run(context, "rankAirports", () -> service.rank(region, profile, topN, weights));
     }
 
+    /** Tool: compares two to six airports and says which one is higher. */
     @Tool(description = "Compare two to six airports. Use focus congestion to compare congestion. Use a profile name "
             + "(terminal or general) to compare the score. Returns the KPIs and percentiles of each airport. "
             + "It also says which airport is higher (focusOrder and kpiComparisons). Use these fields. Do not decide it yourself.")
@@ -55,6 +58,7 @@ public class AirportTools {
         return run(context, "compareAirports", () -> service.compare(codes, focus, weights));
     }
 
+    /** Tool: all KPIs, the component values and the score of one airport. */
     @Tool(description = "All KPIs, component values and the score of one airport, with the source and the data year of each KPI.")
     public ApiResponse<?> getAirportProfile(
             @ToolParam(description = "Airport code or name, for example SFO or its city name") String airport,
@@ -63,6 +67,7 @@ public class AirportTools {
         return run(context, "getAirportProfile", () -> service.airportProfile(airport, profile));
     }
 
+    /** Tool: the share of long-haul departures of one airport, with and without cargo flights. */
     @Tool(description = "The share of long-haul departures of one airport. Returns the share of passenger flights and "
             + "the share with cargo flights. There is no standard definition of long-haul. The default limit is 2,500 miles.")
     public ApiResponse<?> getLongHaulShare(
@@ -72,6 +77,7 @@ public class AirportTools {
         return run(context, "getLongHaulShare", () -> service.longHaul(airport, minMiles));
     }
 
+    /** Tool: the unmet demand index of one airport (a proxy), with its parts. */
     @Tool(description = "The unmet demand index of one airport. It is a PROXY built from load factor, growth and congestion. "
             + "No public data counts unserved flights. Returns the parts of the index, so you can explain why.")
     public ApiResponse<?> getUnmetDemandIndex(
@@ -80,6 +86,7 @@ public class AirportTools {
         return run(context, "getUnmetDemandIndex", () -> service.unmetDemand(airport));
     }
 
+    /** Tool: the current FAA status of one airport. */
     @Tool(description = "The current FAA status of one airport: ground stops, ground delays and closures. "
             + "It does not change any score.")
     public ApiResponse<?> getLiveStatus(
@@ -88,12 +95,17 @@ public class AirportTools {
         return run(context, "getLiveStatus", () -> service.liveStatus(airport));
     }
 
+    /** Tool: the weights, the limits and the scope of the app. */
     @Tool(description = "The weights of the score, the size limit, the data year and the scope of the app. "
             + "Use it for questions about how the score works.")
     public ApiResponse<?> getMethodology(ToolContext context) {
         return run(context, "getMethodology", service::methodology);
     }
 
+    /**
+     * Runs one tool call. It checks the call limit of the turn, calls the engine and records the result for the
+     * number check.
+     */
     private <T> ApiResponse<?> run(ToolContext context, String tool, Supplier<QueryResult<T>> call) {
         ToolLog log = (ToolLog) context.getContext().get(ToolLog.KEY);
         if (log != null && !log.allowCall()) {

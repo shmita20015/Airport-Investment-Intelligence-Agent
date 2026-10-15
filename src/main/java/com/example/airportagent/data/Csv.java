@@ -24,6 +24,7 @@ final class Csv {
             .setSkipHeaderRecord(true)
             .get();
 
+    /** Utility class. It has no instance. */
     private Csv() {}
 
     /** Read a CSV file from the class path. */
@@ -40,6 +41,7 @@ final class Csv {
         }
     }
 
+    /** Reads the rows of a CSV text. Each row is a map from the column name to the text. */
     static List<Map<String, String>> read(Reader reader) throws IOException {
         try (CSVParser parser = FORMAT.parse(reader)) {
             return parser.stream().map(CSVRecord::toMap).toList();

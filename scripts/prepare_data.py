@@ -397,11 +397,9 @@ def main():
         state = airport["iso_region"].replace("US-", "") if airport["iso_country"] == "US" else airport["iso_country"]
         airports_rows.append([
             code, airport["local_code"], airport["name"], airport["municipality"], state,
-            airport["latitude_deg"],
-            airport["longitude_deg"], runway_count.get(airport["id"], 0), entry.get("hub", "")])
+            runway_count.get(airport["id"], 0), entry.get("hub", "")])
         enplanements = entry["enplanements"]
-        enpl_rows.append([code, enplanements.get(2023, ""), enplanements.get(2024, ""),
-                          enplanements.get(2025, ""), entry.get("rank", "")])
+        enpl_rows.append([code, enplanements.get(2023, ""), enplanements.get(2025, "")])
         if code not in traffic:
             report.append(f"NO T-100 traffic for {code} ({airport['name']})")
         if code not in ontime:
@@ -410,11 +408,11 @@ def main():
             report.append(f"NO runway count for {code} ({airport['name']})")
 
     write_csv(out / "airports.csv",
-              ["iata", "faa_id", "name", "city", "state", "lat", "lon", "runway_count", "hub_class"],
+              ["iata", "faa_id", "name", "city", "state", "runway_count", "hub_class"],
               airports_rows)
-    write_csv(out / "enplanements.csv", ["iata", "enpl_cy23", "enpl_cy24", "enpl_cy25", "faa_rank_cy25"], enpl_rows)
-    write_csv(out / "traffic.csv", ["iata", "year", "pax", "seats", "departures_pax", "departures_cargo"],
-              [[c, year, int(t["pax"]), int(t["seats"]), int(t["dep_pax"]), int(t["dep_cargo"])]
+    write_csv(out / "enplanements.csv", ["iata", "enpl_cy23", "enpl_cy25"], enpl_rows)
+    write_csv(out / "traffic.csv", ["iata", "pax", "seats", "departures_pax", "departures_cargo"],
+              [[c, int(t["pax"]), int(t["seats"]), int(t["dep_pax"]), int(t["dep_cargo"])]
                for c, t in sorted(traffic.items())])
     write_csv(out / "distance_buckets.csv", ["iata", "bucket_min_miles", "departures_pax", "departures_cargo"],
               [[c, b, int(p), int(g)] for c, per in sorted(buckets.items()) for b, (p, g) in sorted(per.items())])
@@ -422,11 +420,11 @@ def main():
     for code, s in sorted(ontime.items()):
         delay_rate = s["delayed"] / s["dep_known"] if s["dep_known"] else ""
         taxi = s["taxi_sum"] / s["taxi_n"] if s["taxi_n"] else ""
-        ontime_rows.append([code, year, s["flights"], fmt(delay_rate) if delay_rate != "" else "",
+        ontime_rows.append([code, s["flights"], fmt(delay_rate) if delay_rate != "" else "",
                             fmt(s["cancelled"] / s["flights"]) if s["flights"] else "",
                             fmt(taxi, 3) if taxi != "" else ""])
     write_csv(out / "ontime.csv",
-              ["iata", "year", "flights", "delay15_rate", "cancel_rate", "avg_taxi_out_min"], ontime_rows)
+              ["iata", "flights", "delay15_rate", "cancel_rate", "avg_taxi_out_min"], ontime_rows)
 
     manifest = {
         "generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
@@ -435,7 +433,7 @@ def main():
             {"name": "OurAirports airports.csv and runways.csv", "url": OURAIRPORTS,
              "use": "airport identity, location, open runway count"},
             {"name": "FAA commercial service enplanements CY2024 and CY2025", "url": FAA_BASE,
-             "files": list(FAA_FILES.values()), "use": "enplanements CY23 to CY25, hub class, rank, airport universe"},
+             "files": list(FAA_FILES.values()), "use": "enplanements CY23 and CY25, hub class, airport universe"},
             {"name": "BTS T-100 Segment (US Carriers Only), domestic and international",
              "url": "https://www.transtats.bts.gov/ (table GDM)", "use": "passengers, seats, departures, distance buckets"},
             {"name": "BTS On-Time Performance, 12 monthly files", "url": "https://transtats.bts.gov/PREZIP/",

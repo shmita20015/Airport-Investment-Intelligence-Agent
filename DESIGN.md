@@ -102,7 +102,7 @@ All limits are settings in `application.yml` (`airport.limits`).
 | Spring AI | Standard tool calling, memory and model change by configuration. | One more framework to learn. |
 | Browser voice | No server cost, no extra dependency. | Chrome and Edge only. |
 
-## 9. Tests (184, no real LLM call)
+## 9. Tests (195, no real LLM call)
 - Scoring: hand-calculated values, ordering, missing data, ties.
 - Real data: the data files are consistent (for example no airport code collisions).
 - Engine and REST API give the same numbers.

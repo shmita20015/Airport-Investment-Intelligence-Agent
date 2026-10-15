@@ -40,6 +40,7 @@ public class MetricsBuilder {
 
     private final ScoringProperties properties;
 
+    /** Creates the builder with the settings. */
     public MetricsBuilder(ScoringProperties properties) {
         this.properties = properties;
     }
@@ -87,6 +88,7 @@ public class MetricsBuilder {
         return LongHaulCalculator.share(buckets, limitMiles, includeCargo);
     }
 
+    /** The long-haul share KPI. A share below the noise floor is set to 0. */
     private MetricValue longHaul(AirportDataset data, String code, int limitMiles) {
         if (data.bucketsOf(code).isEmpty()) {
             return new MetricValue.Missing("no T-100 departures in the data");
@@ -99,6 +101,7 @@ public class MetricsBuilder {
         return new MetricValue.Direct(value, T100 + " (shares below 1% are set to 0)");
     }
 
+    /** A KPI from the On-Time data. It is Missing if the airport has no data or too few flights. */
     private MetricValue ontimeKpi(OntimeRow ontime, Function<OntimeRow, OptionalDouble> column) {
         if (ontime == null) {
             return new MetricValue.Missing("no On-Time data (the airport has no large reporting carrier)");
@@ -143,6 +146,7 @@ public class MetricsBuilder {
         return new MetricValue.Direct(enplanement.cy25().getAsLong(), FAA + " CY25");
     }
 
+    /** The load factor: passengers divided by seats. It is Missing if there are no seats. */
     private MetricValue loadFactor(TrafficRow traffic) {
         if (traffic == null || traffic.seats() <= 0) {
             return new MetricValue.Missing("no seats in the T-100 data");
@@ -150,6 +154,7 @@ public class MetricsBuilder {
         return new MetricValue.Proxy(traffic.pax() / traffic.seats(), T100, "terminal pressure");
     }
 
+    /** The passengers per departure. It is Missing if there are no passenger departures. */
     private MetricValue paxPerDeparture(TrafficRow traffic) {
         if (noPassengerDepartures(traffic)) {
             return new MetricValue.Missing(NO_DEPARTURES);
@@ -158,6 +163,7 @@ public class MetricsBuilder {
                 "terminal strain (size of aircraft)");
     }
 
+    /** True if the airport has no passenger departures in the T-100 data. */
     private static boolean noPassengerDepartures(TrafficRow traffic) {
         return traffic == null || traffic.departuresPax() <= 0;
     }

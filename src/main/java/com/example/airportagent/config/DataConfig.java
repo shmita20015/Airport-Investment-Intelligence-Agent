@@ -2,7 +2,6 @@ package com.example.airportagent.config;
 
 import com.example.airportagent.data.AirportDataLoader;
 import com.example.airportagent.data.AirportDataset;
-import com.example.airportagent.data.ExpertNotes;
 import com.example.airportagent.data.FaaStatusClient;
 import com.example.airportagent.data.HttpFaaStatusClient;
 import org.springframework.context.annotation.Bean;
@@ -20,11 +19,7 @@ public class DataConfig {
         return new AirportDataLoader().load();
     }
 
-    @Bean
-    public ExpertNotes expertNotes() {
-        return ExpertNotes.load();
-    }
-
+    /** The client of the live FAA status service, with the time limits from the settings. */
     @Bean
     public FaaStatusClient faaStatusClient(LiveProperties properties) {
         return new HttpFaaStatusClient(properties.faaStatusUrl(), Duration.ofMillis(properties.timeoutMs()),

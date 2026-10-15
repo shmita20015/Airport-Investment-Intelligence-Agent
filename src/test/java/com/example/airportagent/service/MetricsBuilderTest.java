@@ -30,7 +30,7 @@ class MetricsBuilderTest {
             new MetricsBuilder(new ScoringProperties(Map.of(), Map.of(), 100_000, 2_000, 2_500, Map.of()));
 
     private static Airport airport(String code, int runways) {
-        return new Airport(code, code, code + " Airport", "City", "MA", 0, 0, runways,
+        return new Airport(code, code, code + " Airport", "City", "MA", runways,
                 HubClass.MEDIUM);
     }
 
@@ -39,11 +39,11 @@ class MetricsBuilderTest {
         Airport xxx = airport("XXX", 4);
         return new AirportDataset(
                 Map.of("XXX", xxx),
-                Map.of("XXX", new TrafficRow("XXX", 2025, 8_000_000, 10_000_000, 100_000, 5_000)),
+                Map.of("XXX", new TrafficRow("XXX", 8_000_000, 10_000_000, 100_000, 5_000)),
                 Map.of("XXX", List.of(new BucketRow("XXX", 0, 60_000, 5_000), new BucketRow("XXX", 2500, 40_000, 0))),
-                Map.of("XXX", new OntimeRow("XXX", 2025, 50_000, OptionalDouble.of(0.2), OptionalDouble.of(0.01),
+                Map.of("XXX", new OntimeRow("XXX", 50_000, OptionalDouble.of(0.2), OptionalDouble.of(0.01),
                         OptionalDouble.of(15))),
-                Map.of("XXX", new EnplanementRow("XXX", OptionalLong.of(4_000_000), OptionalLong.of(5_000_000),
+                Map.of("XXX", new EnplanementRow("XXX", OptionalLong.of(4_000_000),
                         OptionalLong.of(6_250_000))),
                 Map.of(), new DatasetInfo(2025, "test"));
     }
@@ -122,7 +122,7 @@ class MetricsBuilderTest {
     void onTimeKpisAreMissingWhenThereAreTooFewFlights() {
         Airport zzz = airport("ZZZ", 2);
         AirportDataset data = new AirportDataset(Map.of("ZZZ", zzz), Map.of(), Map.of(),
-                Map.of("ZZZ", new OntimeRow("ZZZ", 2025, 500, OptionalDouble.of(0.5), OptionalDouble.of(0.1),
+                Map.of("ZZZ", new OntimeRow("ZZZ", 500, OptionalDouble.of(0.5), OptionalDouble.of(0.1),
                         OptionalDouble.of(30))),
                 Map.of(), Map.of(), new DatasetInfo(2025, "test"));
 

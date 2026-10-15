@@ -35,14 +35,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final Cache<String, Bucket> chatBuckets = newBucketCache();
     private final Cache<String, Bucket> apiBuckets = newBucketCache();
 
+    /** Creates the filter with the limits from the settings. */
     public RateLimitFilter(LimitProperties limits) {
         this.limits = limits;
     }
 
+    /** A cache of buckets with a size limit and an idle time, so that the filter does not grow without a limit. */
     private static Cache<String, Bucket> newBucketCache() {
         return Caffeine.newBuilder().maximumSize(10_000).expireAfterAccess(Duration.ofMinutes(10)).build();
     }
 
+    /** Limits the chat and the API requests of one client address. Other paths pass without a check. */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
@@ -68,12 +71,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
         reject(response, 429, "Too many requests. Wait " + retryAfter + " seconds and try again.");
     }
 
+    /** A token bucket that gives the allowed number of requests in a minute. */
     private static Bucket newBucket(int perMinute) {
         return Bucket.builder()
                 .addLimit(Bandwidth.builder().capacity(perMinute).refillGreedy(perMinute, Duration.ofMinutes(1)).build())
                 .build();
     }
 
+    /**
+     * Checks the Content-Length of a chat request. If it is not allowed, it writes HTTP 411 or 413 and returns false.
+     */
     private boolean bodySizeAllowed(HttpServletRequest request, HttpServletResponse response) throws IOException {
         long length = request.getContentLengthLong();
         if (length < 0) {
@@ -87,6 +94,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return true;
     }
 
+    /** Writes an error answer with a status and a message as JSON. */
     private static void reject(HttpServletResponse response, int status, String message) throws IOException {
         response.setStatus(status);
         response.setContentType("application/json");
