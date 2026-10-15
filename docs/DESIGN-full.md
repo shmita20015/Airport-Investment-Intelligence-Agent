@@ -1,11 +1,11 @@
 # Airport Investment Intelligence Agent: Design Document
 
-Status: draft 1. Date of the data checks: 2026-10-14.
+Date of the data checks: 2026-10-14.
 
 This document is the appendix of `DESIGN.md`. `DESIGN.md` is the short deliverable. This document explains the full design. It lists each decision, each assumption and each limit.
 Items marked **VERIFIED** were tested with real requests on 2026-10-14.
-Items marked **PROPOSED** are design choices that the author can change.
-Items marked **NOT VERIFIED** were not tested yet.
+Items marked **CHOSEN** are design choices. The settings can change many of them.
+Items marked **NOT VERIFIED** were not tested.
 
 ---
 
@@ -63,16 +63,16 @@ The agent must say this in its answers when it is relevant.
 
 | Item | Choice | Status | Reason |
 |---|---|---|---|
-| Language | Java 21 (the code compiles with `release 21`) | DECIDED | The author works in Java. The build machine has JDK 25. It builds Java 21 code with the `release` option. |
-| Build | Maven, one module | DECIDED | Simple. Matches the existing project. |
-| Web | Spring Boot 4.1.1 (`spring-boot-starter-web`) | DECIDED, **VERIFIED** | Current stable line on 2026-10-14. The earlier plan (Boot 3.5) was old. |
-| LLM layer | Spring AI 2.0.1 (`ChatClient`, `@Tool`, `ChatMemory`) | DECIDED, **VERIFIED** | Spring AI 2.0.1 is built against Boot 4.1.1. The application starts and the settings bind. The tool code is not written yet. |
-| LLM provider | Gemini (free tier) behind `ChatClient`, model `gemini-2.5-flash` | DECIDED | No cost. The key works (model list call returned 200). The daily limit is small. A change of provider is a configuration change. |
-| Data storage | In memory, loaded from CSV files at start-up | DECIDED | About 100 to 500 rows. A database adds no value. |
-| Data preparation | Python script (3.12 is installed) | DECIDED | Faster to write. It runs one time. |
-| UI | One static HTML page served by Spring Boot | PROPOSED | No front-end build. |
-| Voice | Browser Web Speech API | PROPOSED | The backend does not change. |
-| Tests | JUnit 5, AssertJ, ArchUnit | PROPOSED | See section 12. |
+| Language | Java 21 (the code compiles with `release 21`) | CHOSEN | The developer works in Java. The build machine has JDK 25. It builds Java 21 code with the `release` option. |
+| Build | Maven, one module | CHOSEN | Simple. Matches the existing project. |
+| Web | Spring Boot 4.1.1 (`spring-boot-starter-web`) | CHOSEN, **VERIFIED** | Current stable line on 2026-10-14. |
+| LLM layer | Spring AI 2.0.1 (`ChatClient`, `@Tool`, `ChatMemory`) | CHOSEN, **VERIFIED** | Spring AI 2.0.1 is built against Boot 4.1.1. The application starts, the settings bind and the tools work (real LLM check on 2026-10-14). |
+| LLM provider | Gemini (free tier) behind `ChatClient`, model from the setting `GEMINI_MODEL` | CHOSEN | No cost. The daily limit is small, and the larger models can answer 503 (high demand). A change of model is a setting. A change of provider is a configuration change. |
+| Data storage | In memory, loaded from CSV files at start-up | CHOSEN | About 100 to 500 rows. A database adds no value. |
+| Data preparation | Python script (3.12 is installed) | CHOSEN | Faster to write. It runs one time. |
+| UI | One static HTML page served by Spring Boot | CHOSEN | No front-end build. |
+| Voice | Browser Web Speech API | CHOSEN | The backend does not change. |
+| Tests | JUnit 5, AssertJ, ArchUnit | CHOSEN | See section 12. |
 
 Rejected: LangChain4j (same effort as Spring AI), a hand-written LLM loop (not best practice), DuckDB or Postgres (no need), a vector store or RAG (no documents to search).
 
@@ -298,7 +298,7 @@ Rules:
 
 The reason is that On-Time covers only large reporting airlines.
 Thus, some airports have T-100 traffic but no delay data.
-The design handles this with the missing-data rule (section 6.5) and a minimum number of flights (setting `min-ontime-flights`, **PROPOSED** value 1,000 a year). With 1,000 flights, a delay rate of 20% has a sampling error of about 1.3 points. New England has 23 commercial airports. 10 of them are above the size limit of 100,000 enplanements: BOS, BDL, PVD, PWM, HVN, BTV, MHT, BGR, ACK and ORH. HVN and ORH have no delay KPIs, so their scores use lower coverage.
+The design handles this with the missing-data rule (section 6.5) and a minimum number of flights (setting `min-ontime-flights`, value 1,000 a year). With 1,000 flights, a delay rate of 20% has a sampling error of about 1.3 points. New England has 23 commercial airports. 10 of them are above the size limit of 100,000 enplanements: BOS, BDL, PVD, PWM, HVN, BTV, MHT, BGR, ACK and ORH. HVN and ORH have no delay KPIs, so their scores use lower coverage.
 
 ### 5.9 Size
 All files together are a few hundred KB. The app loads them in less than a second.
@@ -369,7 +369,7 @@ The congestion score does not include traffic volume. Volume and congestion are 
 | Long-haul | 0.10 | 0 |
 | Scale | 0.15 | 0.15 |
 
-**These weights are heuristics. They are PROPOSED start values.** They are not fitted to data. Nobody has tested them against real investment results.
+**These weights are heuristics. They are start values.** They are not fitted to data. Nobody has tested them against real investment results.
 The weights are in `application.yml`. The app checks at start-up that each profile sums to 1.0.
 The answer states which profile it used.
 
@@ -387,7 +387,7 @@ The answer states which profile it used.
 
 ### 6.6 The ranked set and the eligibility rule
 - The data files may hold all US airports with scheduled passenger service (522 airports, **VERIFIED**: the FAA commercial service list including US territories).
-- The **ranked set** has only airports with at least `min-enplanements` enplanements in the latest year. The **PROPOSED** value is 100,000. It is a setting.
+- The **ranked set** has only airports with at least `min-enplanements` enplanements in the latest year. The value is 100,000. It is a setting.
 - Percentiles use the ranked set.
 - Reason: a very small airport with high growth from a small base must not rank first for a terminal expansion. Also, a set with many tiny airports lowers the percentile of a medium airport.
 - An airport that is in the files but not in the ranked set gets a message: "below the size limit". The tool returns the raw KPIs if the analyst asks for them.
@@ -412,7 +412,7 @@ The result is the same on each run.
 
 **Long-haul share (Anchorage)**
 - `share = Σ departures in buckets at or above the limit ÷ Σ departures`.
-- The limit is a parameter. The default is 2,500 miles (**PROPOSED**). Other limits that an analyst can use: 1,500 miles and 4,000 km (about 2,500 miles).
+- The limit is a parameter. The default is 2,500 miles. Other limits that an analyst can use: 1,500 miles and 4,000 km (about 2,500 miles).
 - The limit must be a multiple of 500 miles, because of the bucket size. Otherwise the tool rounds it down and says so.
 - The tool always returns both values: passenger flights only, and with cargo flights. It also returns the limit used, the cargo share of the departures and the table. The agent uses the passenger value as the main value unless the user asks for cargo.
 - **Noise floor in the scoring:** a long-haul share below 1% is set to 0 in the KPI of the score (`MetricsBuilder.LONG_HAUL_NOISE_FLOOR`). Reason: SNA has 3 long-haul departures of 50,000 (0.006%). Many airports have exactly 0%, so the percentile of this noise was 70. With the floor it is 42 (the tie group). The long-haul tool still shows the real share.
@@ -423,7 +423,7 @@ The result is the same on each run.
 - `unmetDemand = 0.4 × loadFactor + 0.3 × growth + 0.3 × congestion` (all are percentiles).
 - It is a **proxy**. No public data measures demand that airlines did not serve.
 - The result always has the label `PROXY` and a text that says what the index is and is not.
-- The weights are **PROPOSED**. The analyst can change them.
+- The weights are heuristics. The analyst can change them.
 - The "why" comes from the contributions of the components, sorted by points.
 - The tool adds an expert note for SFO (in `application.yml`, section `airport.notes`): the close-parallel runways cannot operate independently in low visibility. The `opsPerRunway` KPI does not show this. The result labels the note with its source text: "expert note, not calculated from the data files, check it with the FAA before use". It is never a score input.
 
@@ -490,11 +490,12 @@ If the long-haul value is missing, the weights of the other four become 0.30 ÷ 
 
 | Tool | Purpose |
 |---|---|
-| `rankAirports(region, profile, topN)` | Rank the ranked set. The region is a name from the settings (22 names, for example NEW_ENGLAND, WEST_COAST, MIDWEST), a state code (TX) or a comma list (CA,OR,WA). The percentiles stay national. |
+| `rankAirports(region, profile, topN)` | Rank the ranked set. The region is a name from the settings (23 names, for example NEW_ENGLAND, WEST_COAST, MIDWEST), a state code (TX) or a comma list (CA,OR,WA). The percentiles stay national. |
 | `compareAirports(codes, focus)` | Compare two or more airports. |
 | `getAirportProfile(code)` | KPIs, components and the score trace of one airport. |
 | `getLongHaulShare(code, minMiles)` | Long-haul share. Returns the passenger value and the value with cargo flights. |
 | `getUnmetDemandIndex(code)` | The proxy index and its parts. |
+| `getTrafficVolume(codes)` | Departures, passengers, enplanements and growth in percent of one to six airports. |
 | `getLiveStatus(code)` | Current FAA status. Not a score input. |
 | `getMethodology()` | Weights, limits and scope, for questions about the method. |
 
@@ -550,7 +551,7 @@ The text of the prompt is in `src/main/resources/prompts/system.txt`. It has 14 
 
 ### 8.8 Fallback without the LLM
 - The REST API works with no LLM.
-- Optional (**PROPOSED**, only if time remains): a keyword router for the four example questions. It calls the same service and returns a template text. It makes a demo possible if the LLM key fails.
+- Not built: a keyword router for the four example questions. It would call the same service and return a template text, so that a demo works when the LLM is down. Today, the page and the REST API work without the LLM, and the chat shows a clear message.
 
 ---
 
@@ -567,16 +568,16 @@ Each tool result and each REST response has an envelope:
 | `asOf` | Date of the data files (from the manifest). |
 | `profile`, `parameters` | Weight profile and parameters used (limit, cargo choice, table). |
 
-Rule: if the manifest date is more than 90 days old, the envelope adds the uncertainty "data may be old". (**PROPOSED**.)
+Rule: if the manifest date is more than 90 days old, the envelope adds the uncertainty "data may be old". 
 
 ---
 
 ## 10. User interface and voice
-- One HTML page at `/`. It has a message list and a text box.
-- The page keeps a session ID in the browser memory and sends it with each message.
-- The page shows the answer text and a collapsible panel with the assumptions, the confidence and the score trace.
-- Voice input: `SpeechRecognition` of the browser. Voice output: `speechSynthesis`. A button turns each on or off.
-- Support depends on the browser. Chrome and Edge support it. If the browser does not support it, the page hides the buttons. **NOT VERIFIED** for each browser.
+- One HTML page at `/`. It has two parts: the airport ranking on the left and the chat on the right.
+- **Airport ranking (no LLM):** a table with the score, the confidence and the US rank. The user chooses the region, the ranking goal and the number of airports. A button "Customise" shows sliders for the weights (what-if). A click on an airport opens "Why this score" (the score trace). A closed section shows the sources, the assumptions and the uncertainties. The part uses the REST API.
+- **Chat:** example questions, a text box and a button for voice input. A switch reads the answers aloud. The page keeps a session ID in the browser memory and sends it with each message.
+- Voice input: `SpeechRecognition` of the browser. It keeps listening through short pauses and sends the question after 2.5 seconds without speech. Voice output: `speechSynthesis`, with an English voice.
+- Support depends on the browser. Chrome and Edge support it. If the browser does not support it, the page hides the buttons. **NOT VERIFIED** in a real browser.
 - The backend has no voice code.
 
 ---
@@ -643,7 +644,7 @@ Do not put the API key in the repository.
 | Architecture | `scoring` and `domain` do not depend on `agent`, `api` or Spring AI. | Makes the claim testable. |
 | Number check | An answer with a number that is not in the results is rejected. | Proves the check. |
 
-The four example questions also run by hand at the end, and the results go in the README.
+The four example questions also ran by hand with a real LLM (see `DESIGN.md`, section 6).
 
 ---
 
@@ -699,7 +700,7 @@ The four example questions also run by hand at the end, and the results go in th
 
 ### 15.3 System
 - The chat memory is in the app memory. A restart clears it.
-- The app has no user login, no rate limit and no database. It is a demo.
+- The app has no user login and no database. It limits requests for each client address (section 22). It is a demo.
 - The quality of the answer text depends on the LLM.
 - The number check does not find wrong claims in words.
 - The live FAA call depends on a service that has no guarantee.
@@ -718,7 +719,7 @@ The four example questions also run by hand at the end, and the results go in th
 | D4 | Remove missing components and share the weights. | Fill with the median or zero. | No invented values. | Scores with different coverage are not exactly comparable. A coverage value is shown. |
 | D5 | Save facts offline. Calculate scores at start-up. | Save scores. Call APIs at run time. | The scores follow the code and the settings. The app is fast and does not depend on big downloads. | The data can be old. The manifest shows the date. |
 | D6 | In-memory data. | Database. | About 500 rows. | No query language. Not for larger data. |
-| D7 | Spring AI. | LangChain4j, hand-written loop. | Best practice in Java. Tested tool loop. | The author must learn it. It changes fast. |
+| D7 | Spring AI. | LangChain4j, hand-written loop. | Best practice in Java. Tested tool loop. | The team must learn it. It changes fast. |
 | D8 | Keep Spring AI only in the `agent` package. | Use it everywhere. | The core stays clean and testable. | A small layer of conversion code. |
 | D9 | Combined T-100 table as the default. | Domestic table. | "Flights out of Anchorage" includes international flights. | The data can lose the last months. Foreign airlines are still missing. |
 | D10 | Long-haul limit as a parameter. | A fixed limit. | No standard limit exists. | The user must know that the answer depends on it. |
@@ -734,14 +735,18 @@ The four example questions also run by hand at the end, and the results go in th
 
 ---
 
-## 17. Open decisions (the author must decide)
+## 17. Not built and not verified
 
-Decided on 2026-10-14: Java 21, Gemini free tier, Python for the prepare script, and the weights of section 6.4 and section 6.8 (accepted by the author). The scale component (weight 0.15) was added after the first run on the real data, with the agreement of the author.
+Not built:
+1. A keyword router that answers the four example questions when the LLM is down.
+2. An evaluation set for the answers of the agent.
+3. A second LLM provider.
+4. A profit model (cost, revenue, forecast) and a real demand source for the unmet demand question.
+5. A deployed instance.
 
-Still open:
-1. **Optional fallback router.** Build it only if time remains.
-2. **Key rotation.** The Gemini key was shared in a chat. Replace it after the assignment.
-3. **Model name.** Check at the first real LLM call that `gemini-2.5-flash` works with Spring AI tool calling and that the limit is enough. All agent tests use a scripted model. They do not call Gemini.
+Not verified:
+1. Voice input and voice output in a real browser.
+2. The behavior of the larger Gemini models with the tools (they were overloaded during the check).
 
 ---
 
@@ -751,26 +756,17 @@ Still open:
 |---|---|---|---|
 | The ID matching loses airports. | Medium | Missing airports in rankings. | Measure the match rate. Fix with the alias table. |
 | The TranStats form changes. | Low | The prepare script fails. | Keep the generated files in the repo. |
-| The LLM free tier fails during the review. | Medium | No chat. | REST API. Optional fallback router. A short demo recording. |
-| The weights seem arbitrary to the reviewer. | Medium | Weak argument. | Show the profile, the trace and the sensitivity. State that they are heuristics. |
+| The LLM free tier fails or is busy. | Medium | No chat answers. | The page and the REST API work without the LLM. A keyword router is not built. |
+| The weights are a judgment, not a fact. | Medium | A different weight gives a different ranking. | Show the score trace and the what-if weights. State that the weights are heuristics. |
 | Spring AI version problems with Java 25. | Medium | Build fails. | Use Java 21. |
 | The LLM breaks the number rule. | Medium | A wrong number in an answer. | The number check and the prompt rules. |
 | The data has a gap for a key airport. | Low | A failed example question. | Data loader tests for the key airports. |
 
 ---
 
-## 19. Build plan (about 24 hours)
+## 19. Build notes
 
-| Hours | Work |
-|---|---|
-| 0 to 2 | Final check of the data. Choose the set. Fix the Java and LLM decisions. |
-| 2 to 6 | The prepare script and the data files. The ID match report. |
-| 6 to 11 | `domain`, `data` loaders, `scoring`, unit tests. |
-| 11 to 14 | `AirportQueryService`, REST endpoints, same-number test. |
-| 14 to 18 | Spring AI tools, `ChatService`, memory, prompt, number check. **Done.** |
-| 18 to 20 | Chat page and voice. **Done** (the voice is not verified in a browser). |
-| 20 to 22 | Run the four questions. Fix the problems. |
-| 22 to 24 | README and final edit of this document. |
+The first working version was built in about 24 hours, in this order: the data script, the scoring, the engine and the REST API, the tools and the chat, and the page. Later work added the protection (section 22), the what-if weights, the regions, the data refresh job and a review of the code and the tests.
 
 A small and clear set with clear assumptions is better than a large set with unclear ones.
 

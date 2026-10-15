@@ -54,3 +54,6 @@ application-local.properties
 ### Python ###
 __pycache__/
 *.pyc
+
+### IntelliJ project folder ###
+.idea/

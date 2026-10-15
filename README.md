@@ -48,7 +48,7 @@ Follow-up questions work in the same chat. Example: "And at 1,500 miles?" after 
 | Request | Result |
 |---|---|
 | `GET /api/resolve?q=Santa Ana` | Name to airport |
-| `GET /api/rank?region=NEW_ENGLAND&profile=terminal&topN=10&weights=scale:0` | Ranking. The optional `weights` give custom weights (what-if): `component:weight`, separated by commas. The components that you do not name share the rest. The region can be a name (22 regions in `application.yml`), a state code (`TX`) or a list (`CA,OR,WA`). |
+| `GET /api/rank?region=NEW_ENGLAND&profile=terminal&topN=10&weights=scale:0` | Ranking. The optional `weights` give custom weights (what-if): `component:weight`, separated by commas. The components that you do not name share the rest. The region can be a name (23 regions in `application.yml`), a state code (`TX`) or a list (`CA,OR,WA`). |
 | `GET /api/compare?codes=LAX,SNA&focus=congestion` | Comparison. It says which airport is higher. |
 | `GET /api/methodology` | Profiles, weights, regions, size limit and scope |
 | `GET /api/airport/SFO?profile=general` | KPIs, components and score |
