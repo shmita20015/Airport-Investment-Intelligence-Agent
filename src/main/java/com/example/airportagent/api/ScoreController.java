@@ -70,7 +70,7 @@ public class ScoreController {
     /** GET /api/airport/{code}/traffic: the number of flights and passengers of one airport. */
     @GetMapping("/airport/{code}/traffic")
     public ResponseEntity<?> traffic(@PathVariable String code) {
-        return respond(service.trafficVolume(code));
+        return respond(service.trafficVolume(List.of(code)));
     }
 
     /** GET /api/airport/{code}/unmet-demand: the unmet demand index (a proxy) of one airport. */

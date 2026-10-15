@@ -77,14 +77,22 @@ public final class Views {
     /**
      * The traffic volume of one airport. A value is null if the data have no number for it.
      *
-     * @param passengerDepartures  departures of passenger flights of US carriers (T-100)
-     * @param cargoDepartures      departures of cargo flights of US carriers (T-100)
-     * @param passengers           passengers on those departures (T-100)
-     * @param enplanements         boarding passengers of the year (FAA)
+     * @param passengerDepartures   departures of passenger flights of US carriers (T-100)
+     * @param cargoDepartures       departures of cargo flights of US carriers (T-100)
+     * @param passengers            passengers on those departures (T-100)
+     * @param enplanements          boarding passengers of the data year (FAA)
+     * @param enplanementsTwoYearsEarlier boarding passengers two years before the data year (FAA)
+     * @param growthTwoYearsPercent the change of the enplanements over the two years, in percent
+     * @param growthPerYearPercent  the same change as a yearly rate, in percent
      * @param reportedOnTimeFlights domestic flights of the large reporting carriers (BTS On-Time, both directions)
      */
     public record TrafficVolumeView(AirportRef airport, int year, Double passengerDepartures, Double cargoDepartures,
-                                    Double passengers, Long enplanements, Long reportedOnTimeFlights) {}
+                                    Double passengers, Long enplanements, Long enplanementsTwoYearsEarlier,
+                                    Double growthTwoYearsPercent, Double growthPerYearPercent,
+                                    Long reportedOnTimeFlights) {}
+
+    /** The traffic volume of one to six airports. */
+    public record TrafficVolumesView(List<TrafficVolumeView> airports, List<String> notFound) {}
 
     /**
      * @param index        the unmet demand index from 0 to 100

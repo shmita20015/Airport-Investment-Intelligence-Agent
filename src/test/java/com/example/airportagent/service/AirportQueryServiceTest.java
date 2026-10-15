@@ -17,6 +17,7 @@ import com.example.airportagent.service.Views.RankedItem;
 import com.example.airportagent.service.Views.RankingView;
 import com.example.airportagent.service.Views.Resolution;
 import com.example.airportagent.service.Views.TrafficVolumeView;
+import com.example.airportagent.service.Views.TrafficVolumesView;
 import com.example.airportagent.service.Views.UnmetDemandView;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 /** Tests the service with the real data files and the real settings of application.yml. */
 @SpringBootTest(properties = "spring.ai.google.genai.api-key=test-key-not-real")
@@ -310,25 +312,38 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- traffic volume
 
-    /** Checks that the traffic volume of Boston gives the departures from the data and says that arrivals are not counted. */
+    /** Checks that the traffic volume of Boston gives the departures and the growth from the data. */
     @Test
-    void trafficVolumeOfBostonGivesDeparturesAndTheLimitsOfTheData() {
-        QueryResult.Ok<TrafficVolumeView> result = ok(service.trafficVolume("Boston"));
+    void trafficVolumeOfBostonGivesDeparturesAndGrowthFromTheData() {
+        QueryResult.Ok<TrafficVolumesView> result = ok(service.trafficVolume(List.of("Boston", "JFK")));
 
-        TrafficVolumeView view = result.data();
-        assertThat(view.airport().iata()).isEqualTo("BOS");
-        assertThat(view.passengerDepartures()).isEqualTo(171389.0);
-        assertThat(view.cargoDepartures()).isEqualTo(2803.0);
-        assertThat(view.enplanements()).isEqualTo(21021153L);
-        assertThat(view.reportedOnTimeFlights()).isEqualTo(142859L);
+        TrafficVolumeView boston = result.data().airports().get(0);
+        assertThat(boston.airport().iata()).isEqualTo("BOS");
+        assertThat(boston.passengerDepartures()).isEqualTo(171389.0);
+        assertThat(boston.cargoDepartures()).isEqualTo(2803.0);
+        assertThat(boston.enplanements()).isEqualTo(21021153L);
+        assertThat(boston.enplanementsTwoYearsEarlier()).isEqualTo(19962678L);
+        assertThat(boston.growthTwoYearsPercent()).isCloseTo(5.30, within(0.01));
+        assertThat(boston.growthPerYearPercent()).isCloseTo(2.62, within(0.01));
+        assertThat(boston.reportedOnTimeFlights()).isEqualTo(142859L);
+        assertThat(result.data().airports()).hasSize(2);
         assertThat(result.envelope().assumptions()).anyMatch(text -> text.contains("Arrivals are not counted"));
         assertThat(result.envelope().uncertainties()).anyMatch(text -> text.contains("foreign airlines"));
     }
 
-    /** Checks that the traffic volume of an unknown airport is not available. */
+    /** Checks that an unknown airport in a traffic volume request is listed and the others are kept. */
     @Test
-    void trafficVolumeOfAnUnknownAirportIsNotAvailable() {
-        assertThat(service.trafficVolume("Atlantis")).isNotInstanceOf(QueryResult.Ok.class);
+    void trafficVolumeListsAnUnknownAirportAndKeepsTheOthers() {
+        QueryResult.Ok<TrafficVolumesView> result = ok(service.trafficVolume(List.of("BOS", "Atlantis")));
+
+        assertThat(result.data().airports()).hasSize(1);
+        assertThat(result.data().notFound()).containsExactly("Atlantis");
+    }
+
+    /** Checks that a traffic volume request with only unknown airports is not available. */
+    @Test
+    void trafficVolumeOfOnlyUnknownAirportsIsNotAvailable() {
+        assertThat(service.trafficVolume(List.of("Atlantis"))).isNotInstanceOf(QueryResult.Ok.class);
     }
 
     /** Checks that long haul limit is rounded down and the answer says so. */

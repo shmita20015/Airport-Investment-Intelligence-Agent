@@ -31,6 +31,7 @@ import com.example.airportagent.service.Views.RankedItem;
 import com.example.airportagent.service.Views.RankingView;
 import com.example.airportagent.service.Views.Resolution;
 import com.example.airportagent.service.Views.TrafficVolumeView;
+import com.example.airportagent.service.Views.TrafficVolumesView;
 import com.example.airportagent.service.Views.UnmetDemandView;
 import org.springframework.stereotype.Service;
 
@@ -350,31 +351,50 @@ public class AirportQueryService {
 
     // ------------------------------------------------------------------ traffic volume
 
-    /** The number of flights and passengers of an airport, as the data give them. */
-    public QueryResult<TrafficVolumeView> trafficVolume(String code) {
-        return withAirport(code, airport -> trafficVolume(airport));
+    /** The number of flights, passengers and the passenger growth of one to six airports, as the data give them. */
+    public QueryResult<TrafficVolumesView> trafficVolume(List<String> codes) {
+        if (codes == null || codes.isEmpty()) {
+            return new QueryResult.NotAvailable<>("Give at least one airport.", List.of());
+        }
+        if (codes.size() > MAX_COMPARE) {
+            return new QueryResult.NotAvailable<>("At most " + MAX_COMPARE + " airports in one request.", List.of());
+        }
+        List<TrafficVolumeView> views = new ArrayList<>();
+        List<String> notFound = new ArrayList<>();
+        for (String code : codes) {
+            Optional<TrafficVolumeView> view = uniqueAirport(code).flatMap(this::trafficVolumeOf);
+            view.ifPresentOrElse(views::add, () -> notFound.add(code));
+        }
+        if (views.isEmpty()) {
+            return notInData(String.join(", ", codes));
+        }
+        Envelope envelope = envelopes.build(null,
+                Map.of("airports", String.join(",", views.stream().map(v -> v.airport().iata()).toList())),
+                Confidence.MEDIUM,
+                List.of("Departures are flights that leave the airport. Arrivals are not counted.",
+                        "The growth is the change of the FAA enplanements between two years. The yearly rate is the same change per year."),
+                List.of("Flights of foreign airlines are not in the T-100 data, so the real number of flights is higher.",
+                        "The On-Time number counts only domestic flights of large reporting carriers, in both directions."),
+                List.of());
+        return new QueryResult.Ok<>(new TrafficVolumesView(views, notFound), envelope);
     }
 
-    /** The traffic volume of an airport that is already resolved. */
-    private QueryResult<TrafficVolumeView> trafficVolume(Airport airport) {
+    /** The traffic volume of an airport that is already resolved. It is empty if the data have no traffic number. */
+    private Optional<TrafficVolumeView> trafficVolumeOf(Airport airport) {
         Rows.TrafficRow traffic = data.traffic().get(airport.iata());
         Rows.OntimeRow ontime = data.ontime().get(airport.iata());
         Rows.EnplanementRow enplanements = data.enplanements().get(airport.iata());
         if (traffic == null && ontime == null && enplanements == null) {
-            return new QueryResult.NotAvailable<>("The data have no traffic numbers for " + airport.iata() + ".", List.of());
+            return Optional.empty();
         }
-        TrafficVolumeView view = new TrafficVolumeView(AirportRef.of(airport), data.info().dataYear(),
+        Long now = enplanements != null && enplanements.cy25().isPresent() ? enplanements.cy25().getAsLong() : null;
+        Long before = enplanements != null && enplanements.cy23().isPresent() ? enplanements.cy23().getAsLong() : null;
+        Double twoYears = now != null && before != null && before > 0 ? (now - before) * 100.0 / before : null;
+        Double perYear = now != null && before != null && before > 0 ? (Math.sqrt((double) now / before) - 1) * 100 : null;
+        return Optional.of(new TrafficVolumeView(AirportRef.of(airport), data.info().dataYear(),
                 traffic == null ? null : traffic.departuresPax(), traffic == null ? null : traffic.departuresCargo(),
-                traffic == null ? null : traffic.pax(),
-                enplanements != null && enplanements.cy25().isPresent() ? enplanements.cy25().getAsLong() : null,
-                ontime == null ? null : ontime.flights());
-        Envelope envelope = envelopes.build(null, Map.of("airport", airport.iata()), Confidence.MEDIUM,
-                List.of("Departures are flights that leave the airport. Arrivals are not counted. A simple estimate of all flights is "
-                        + "about 2 times the departures, if arrivals equal departures."),
-                List.of("Flights of foreign airlines are not in the T-100 data, so the real number of flights is higher.",
-                        "The On-Time number counts only domestic flights of large reporting carriers, in both directions."),
-                List.of());
-        return new QueryResult.Ok<>(view, envelope);
+                traffic == null ? null : traffic.pax(), now, before, twoYears, perYear,
+                ontime == null ? null : ontime.flights()));
     }
 
     // ------------------------------------------------------------------ unmet demand
