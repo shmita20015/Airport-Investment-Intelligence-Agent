@@ -158,7 +158,7 @@ public class AirportQueryService {
                 Map.of("region", regionText, "topN", String.valueOf(limit),
                         "minEnplanements", String.valueOf(rankedSet.minEnplanements()),
                         "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles()),
-                        "weights", custom ? weights.trim() : "profile " + base.name()),
+                        "weights", custom ? weights.trim() : "default weights for " + goalName(base.name())),
                 lowestConfidence(shown),
                 rankingAssumptions(profile, base, custom),
                 coverageNotes(shown, true),
@@ -561,7 +561,7 @@ public class AirportQueryService {
         assumptions.add(describe(profile));
         if (custom) {
             assumptions.add("The weights are custom weights from the user. The components that the user did not name "
-                    + "share the rest in the ratio of the profile " + base.name() + ".");
+                    + "share the rest in the ratio of the default weights for the goal \"" + goalName(base.name()) + "\".");
         }
         assumptions.add("The rank among the airports of the region is in the field rank. The rank among all ranked "
                 + "airports is in the field nationalRank. The percentiles are always national.");
@@ -578,7 +578,7 @@ public class AirportQueryService {
 
     /** The answer for an unknown profile name. It lists the known names. */
     private <T> QueryResult<T> unknownProfile(String name) {
-        return new QueryResult.NotAvailable<>("Unknown weight profile: " + name + ".",
+        return new QueryResult.NotAvailable<>("Unknown ranking goal: " + name + ". Use terminal (terminal expansion) or general (general opportunity).",
                 properties.profiles().keySet().stream().sorted().toList());
     }
 
@@ -620,13 +620,23 @@ public class AirportQueryService {
 
     /** A short text of the weights of a profile. */
     private static String describe(WeightProfile profile) {
-        return "Profile " + profile.name() + ": " + describeWeights(profile) + ". These weights are heuristics.";
+        return "Score for the goal \"" + goalName(profile.name()) + "\" = " + describeWeights(profile)
+                + ". The weights are a fixed choice. Data do not fit them.";
+    }
+
+    /** The name of a weight profile as the user knows it: the goal of the ranking. */
+    private static String goalName(String profileName) {
+        return switch (profileName) {
+            case "terminal" -> "terminal expansion";
+            case "general" -> "general opportunity";
+            default -> profileName;
+        };
     }
 
     /** The weights as text, for example 0.25 x congestion + 0.20 x growth. */
     private static String describeWeights(WeightProfile profile) {
         return weightsOf(profile).entrySet().stream()
-                .map(e -> String.format(Locale.ROOT, "%.2f x %s", e.getValue(), e.getKey()))
+                .map(e -> String.format(Locale.ROOT, "%.2f x %s", e.getValue(), e.getKey().replace('_', ' ')))
                 .collect(Collectors.joining(" + "));
     }
 

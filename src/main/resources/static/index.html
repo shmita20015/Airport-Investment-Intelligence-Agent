@@ -96,6 +96,7 @@
         <tbody></tbody>
       </table>
     </div>
+    <p class="small" id="about"></p>
     <p class="small">Click an airport to see why it has this score. Confidence shows how much data the score has.</p>
 
     <details>
@@ -277,6 +278,9 @@
       row.cells[0].className = row.cells[2].className = row.cells[4].className = "num";
       row.addEventListener("click", function () { select(item.airport.iata, items); });
     });
+    $("about").textContent = data ? "The score (0 to 100) shows how much traffic pressure and growth an airport has, compared with the "
+      + data.rankedSetSize + " US airports that have at least " + Number(data.minEnplanements).toLocaleString("en-US")
+      + " passengers a year. A higher score means a stronger case for more capacity." : "";
     $("rankInfo").textContent = data ? "Top " + data.items.length + " of " + data.rankedSetSize + " ranked airports. An airport needs "
       + Number(data.minEnplanements).toLocaleString("en-US") + " passengers a year to be ranked." : "";
   }
@@ -331,8 +335,7 @@
     clear(box);
     if (!envelope) return;
     box.appendChild(el("div", "Data date: " + envelope.asOf + ". Result confidence: " + envelope.confidence + "."));
-    [["Sources", envelope.sources], ["Assumptions", envelope.assumptions], ["Uncertainty", envelope.uncertainties],
-     ["Not answered", envelope.outOfScope]].forEach(function (group) {
+    [["Sources", envelope.sources], ["Assumptions", envelope.assumptions], ["Uncertainty", envelope.uncertainties]].forEach(function (group) {
       if (!group[1] || !group[1].length) return;
       box.appendChild(el("h3", group[0]));
       var list = el("ul", null, "tight");
