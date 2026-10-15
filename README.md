@@ -92,3 +92,7 @@ The tests use the real data files. The agent tests use a scripted model, so they
 | `agent` | Spring AI tools, chat service, number check, chat controller. The only package that uses Spring AI. |
 
 ArchUnit tests keep these rules.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
