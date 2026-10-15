@@ -2,7 +2,6 @@ package com.example.airportagent.data;
 
 import com.example.airportagent.domain.LiveStatus;
 import com.example.airportagent.domain.LiveStatus.EventType;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -78,21 +77,6 @@ class HttpFaaStatusClientTest {
     @Test
     void rejectsTextThatIsNotXml() {
         assertThatThrownBy(() -> HttpFaaStatusClient.parse("not xml", "SFO")).isInstanceOf(IOException.class);
-    }
-
-    /** A call to the real FAA service. The test is skipped if the network or the service is not available. */
-    @Test
-    void theRealFaaServiceAnswersAndTheAnswerCanBeRead() {
-        HttpFaaStatusClient client = new HttpFaaStatusClient(
-                "https://nasstatus.faa.gov/api/airport-status-information", Duration.ofSeconds(5), Duration.ofSeconds(30));
-        LiveStatus status = null;
-        try {
-            status = client.statusOf("SFO");
-        } catch (IOException e) {
-            Assumptions.abort("The FAA service is not available now: " + e.getMessage());
-        }
-        assertThat(status.updateTime()).isNotBlank();
-        assertThat(status.airport()).isEqualTo("SFO");
     }
 
     /** Checks that text from the faa service is cleaned before the llm sees it. */

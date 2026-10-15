@@ -73,4 +73,4 @@ These are outside the core of the brief. Details are in the appendix.
 - **Page:** the left part is the scoring engine with no LLM (ranked table, sliders, score breakdown, sources). The right part is the chat with voice (browser speech functions).
 - **Regions:** 23 regions (Census regions and informal groups) are lists of state codes in `application.yml`.
 - **Protection:** per-client rate limits (Bucket4j), 4 concurrent chats, size limits, session limits, cleaning of outside text, removal of links and images from answers. All limits are in `airport.limits`. The tools only read data, so a successful attack can cause a wrong answer, but not a changed score or file. Section 22 of the appendix has the full table.
-- **Tests:** 204 tests, with no real LLM call. They cover scoring, real data checks, the REST API, the agent (with a scripted model) and architecture rules (ArchUnit).
+- **Tests:** 190 tests, with no real LLM call. They cover scoring, real data checks, the REST API, the agent (with a scripted model) and architecture rules (ArchUnit).

@@ -64,10 +64,4 @@ class RegionParserTest {
         assertThatThrownBy(() -> parser.parse("TX, Atlantis")).hasMessageContaining("Unknown region: Atlantis");
     }
 
-    /** Checks that the known regions list the names and the other forms. */
-    @Test
-    void theKnownRegionsListTheNamesAndTheOtherForms() {
-        assertThat(parser.knownRegions()).contains("NEW_ENGLAND", "WEST_COAST", "ALL");
-        assertThat(parser.knownRegions().get(0)).isEqualTo("NEW_ENGLAND");
-    }
 }

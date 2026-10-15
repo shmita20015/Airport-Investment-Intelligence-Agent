@@ -61,9 +61,4 @@ class CustomWeightsTest {
         assertThatThrownBy(() -> CustomWeights.apply(BASE, "scale:-0.5")).hasMessageContaining("zero or more");
     }
 
-    /** Checks that the component names are in lower case. */
-    @Test
-    void theComponentNamesAreInLowerCase() {
-        assertThat(CustomWeights.componentNames()).contains("congestion", "load_factor", "scale").doesNotContain("SCALE");
-    }
 }

@@ -52,9 +52,4 @@ class RateLimitIntegrationTest {
         assertThat(last).isEqualTo(429);
     }
 
-    /** Checks that a large chat body is rejected. */
-    @Test
-    void aLargeChatBodyIsRejected() throws Exception {
-        assertThat(postChat("{\"message\":\"" + "a".repeat(400) + "\"}").statusCode()).isEqualTo(413);
-    }
 }

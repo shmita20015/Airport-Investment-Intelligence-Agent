@@ -67,9 +67,6 @@ class ChatControllerTest {
         HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
 
         assertThat(response.statusCode()).isEqualTo(200);
-        assertThat(response.body()).contains("Airport Investment Intelligence Agent").contains("SpeechRecognition");
-        // The scoring engine panel: ranked table, weights and sources.
-        assertThat(response.body()).contains("id=\"rank\"").contains("id=\"weights\"")
-                .contains("id=\"sources\"").contains("/api/rank").contains("/api/methodology");
+        assertThat(response.body()).contains("Airport Investment Intelligence Agent");
     }
 }

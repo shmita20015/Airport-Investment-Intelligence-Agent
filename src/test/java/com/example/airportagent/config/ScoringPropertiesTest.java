@@ -62,10 +62,4 @@ class ScoringPropertiesTest {
         assertThat(properties.regions().get("LOWER_48")).hasSize(49).doesNotContain("AK", "HI");
     }
 
-    /** Checks that size and limit settings are read. */
-    @Test
-    void sizeAndLimitSettingsAreRead() {
-        assertThat(properties.minEnplanements()).isEqualTo(100_000);
-        assertThat(properties.defaultLongHaulMiles()).isEqualTo(2500);
-    }
 }

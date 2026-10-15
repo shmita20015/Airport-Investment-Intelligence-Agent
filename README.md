@@ -78,7 +78,7 @@ The script saves facts only (sums, counts, rates). The scores are calculated at 
 mvn test
 ```
 
-The tests use the real data files. The agent tests use a scripted model, so they make no call to Gemini. One test calls the live FAA service. It is skipped if the network is down.
+The tests use the real data files. The agent tests use a scripted model, so they make no call to Gemini. No test makes a network call.
 
 ## Structure
 

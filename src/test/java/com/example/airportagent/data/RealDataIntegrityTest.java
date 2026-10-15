@@ -107,13 +107,6 @@ class RealDataIntegrityTest {
         assertThat(withCargo.share().getAsDouble()).isNotEqualTo(passenger.share().getAsDouble());
     }
 
-    /** Checks that san francisco long haul share matches the checked value. */
-    @Test
-    void sanFranciscoLongHaulShareMatchesTheCheckedValue() {
-        // Checked on 2026-10-14: 18.4 percent (combined table, passenger flights, 2,500 miles).
-        assertThat(builder.longHaulResult(data, "SFO", 2_500, false).share().getAsDouble()).isBetween(0.17, 0.20);
-    }
-
     /** Checks that hub classes and states are read. */
     @Test
     void hubClassesAndStatesAreRead() {

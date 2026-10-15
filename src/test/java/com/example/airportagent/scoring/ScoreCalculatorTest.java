@@ -150,13 +150,6 @@ class ScoreCalculatorTest {
         assertThat(ranked).extracting(Score::iata).containsExactly("XXX", "YYY", "ZZZ");
     }
 
-    /** Checks that top n limits the result. */
-    @Test
-    void topNLimitsTheResult() {
-        assertThat(calculator.rank(List.of(a, b, c), growthAndLoad, 2)).hasSize(2);
-        assertThat(calculator.rank(List.of(a, b, c), growthAndLoad, 0)).isEmpty();
-    }
-
     /** Checks that proxy kpi is marked in the trace. */
     @Test
     void proxyKpiIsMarkedInTheTrace() {

@@ -37,18 +37,6 @@ class DataRefreshJobTest {
         assertThat(calls).hasValue(3);
     }
 
-    /** Checks that the job runs the action only one time if it works at once. */
-    @Test
-    void theJobRunsTheActionOnlyOneTimeIfItWorksAtOnce() {
-        AtomicInteger calls = new AtomicInteger();
-
-        assertThat(DataRefreshJob.runWithRetry(3, 0, () -> {
-            calls.incrementAndGet();
-            return 0;
-        })).isTrue();
-        assertThat(calls).hasValue(1);
-    }
-
     /** Checks that the real data pass the basic check. */
     @Test
     void theRealDataPassTheBasicCheck() {

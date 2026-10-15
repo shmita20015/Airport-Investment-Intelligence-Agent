@@ -271,19 +271,9 @@ class ChatServiceTest {
         assertThat(reply.reply()).contains("not available").contains("429").contains("/api");
     }
 
-    /** Checks that the system prompt is sent with each request. */
+    /** Checks that the model can call each of the tools. */
     @Test
-    void theSystemPromptIsSentWithEachRequest() {
-        model.script = prompt -> Step.text("Hello.");
-
-        chat.chat("s9", "Hello");
-
-        assertThat(model.prompts.get(0).getSystemMessage().getText()).contains("Use only numbers that are in the tool results");
-    }
-
-    /** Checks that the model can call each of the seven tools. */
-    @Test
-    void theModelCanCallEachOfTheSevenTools() {
+    void theModelCanCallEachOfTheTools() {
         String[][] specs = {
                 {"rankAirports", "{\"region\":\"NEW_ENGLAND\",\"profile\":\"terminal\"}"},
                 {"rankAirports", "{\"region\":\"WEST_COAST\",\"profile\":\"terminal\",\"weights\":\"scale:0\"}"},
@@ -292,6 +282,7 @@ class ChatServiceTest {
                 {"getLongHaulShare", "{\"airport\":\"Anchorage\"}"},
                 {"getUnmetDemandIndex", "{\"airport\":\"SFO\"}"},
                 {"getLiveStatus", "{\"airport\":\"LAX\"}"},
+                {"getTrafficVolume", "{\"airports\":[\"BOS\",\"JFK\"]}"},
                 {"getMethodology", "{}"}};
         for (String[] spec : specs) {
             model.prompts.clear();

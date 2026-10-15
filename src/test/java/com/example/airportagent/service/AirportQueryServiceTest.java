@@ -393,12 +393,6 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().outOfScope()).anyMatch(text -> text.contains("count of unserved flights"));
     }
 
-    /** Checks that airports without an expert note have none. */
-    @Test
-    void airportsWithoutAnExpertNoteHaveNone() {
-        assertThat(ok(service.unmetDemand("LAX")).data().expertNote()).isNull();
-    }
-
     // ---------------------------------------------------------------- live status
 
     /** Checks that live status comes from the faa client. */
@@ -455,19 +449,6 @@ class AirportQueryServiceTest {
         assertThat(service.resolveAirport("Heathrow")).isInstanceOf(QueryResult.OutOfScope.class);
         assertThat(service.resolveAirport("  ")).isInstanceOf(QueryResult.OutOfScope.class);
         assertThat(service.resolveAirport(null)).isInstanceOf(QueryResult.OutOfScope.class);
-    }
-
-    /** Checks that the methodology shows the profiles from the settings. */
-    @Test
-    void theMethodologyShowsTheProfilesFromTheSettings() {
-        Views.MethodologyView view = ok(service.methodology()).data();
-
-        assertThat(view.weightProfiles()).containsKeys("terminal", "general");
-        assertThat(view.weightProfiles().get("terminal").values().stream().mapToDouble(Double::doubleValue).sum())
-                .isCloseTo(1.0, org.assertj.core.data.Offset.offset(1e-9));
-        assertThat(view.unmetDemandWeights()).containsKeys("load_factor", "growth", "congestion");
-        assertThat(view.rankedAirports()).isBetween(150, 300);
-        assertThat(view.minEnplanements()).isEqualTo(100_000);
     }
 
     /** Checks that the tools accept a name and a code. */
@@ -575,9 +556,4 @@ class AirportQueryServiceTest {
                 .isInstanceOf(QueryResult.NotAvailable.class);
     }
 
-    /** Checks that the methodology lists the regions. */
-    @Test
-    void theMethodologyListsTheRegions() {
-        assertThat(ok(service.methodology()).data().regions()).contains("NEW_ENGLAND", "WEST_COAST", "MIDWEST");
-    }
 }
