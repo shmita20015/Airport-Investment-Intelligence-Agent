@@ -46,6 +46,7 @@ class RestApiTest {
         return JSON.readTree(get(path).body());
     }
 
+    /** Checks that the ranking of the api has the same numbers as the service. */
     @Test
     void theRankingOfTheApiHasTheSameNumbersAsTheService() throws Exception {
         JsonNode body = json("/api/rank?region=NEW_ENGLAND&profile=terminal&topN=8");
@@ -65,6 +66,7 @@ class RestApiTest {
         assertThat(body.path("envelope").path("assumptions").size()).isPositive();
     }
 
+    /** Checks that the long haul share of the api has the same numbers as the service. */
     @Test
     void theLongHaulShareOfTheApiHasTheSameNumbersAsTheService() throws Exception {
         JsonNode body = json("/api/airport/ANC/long-haul?minMiles=2500");
@@ -76,6 +78,7 @@ class RestApiTest {
                 .isCloseTo(expected.shareWithCargo(), Offset.offset(1e-12));
     }
 
+    /** Checks that the comparison and the unmet demand are available. */
     @Test
     void theComparisonAndTheUnmetDemandAreAvailable() throws Exception {
         JsonNode compare = json("/api/compare?codes=LAX,SNA&focus=congestion");
@@ -88,6 +91,7 @@ class RestApiTest {
         assertThat(unmet.path("data").path("expertNote").asString("")).contains("parallel runways");
     }
 
+    /** Checks that a gap in the data gives404 with a reason. */
     @Test
     void aGapInTheDataGives404WithAReason() throws Exception {
         HttpResponse<String> unknownAirport = get("/api/airport/ZZZ");
@@ -101,6 +105,7 @@ class RestApiTest {
         assertThat(JSON.readTree(unknownProfile.body()).path("whatIsAvailable").size()).isPositive();
     }
 
+    /** Checks that the name lookup resolves an alias. */
     @Test
     void theNameLookupResolvesAnAlias() throws Exception {
         JsonNode body = json("/api/resolve?q=" + java.net.URLEncoder.encode("Santa Ana", "UTF-8"));
@@ -109,6 +114,7 @@ class RestApiTest {
         assertThat(body.path("data").path("best").path("airport").path("iata").asString()).isEqualTo("SNA");
     }
 
+    /** Checks that custom weights and the methodology are available in the api. */
     @Test
     void customWeightsAndTheMethodologyAreAvailableInTheApi() throws Exception {
         JsonNode custom = json("/api/rank?profile=terminal&topN=3&weights=scale:0,congestion:0.5");

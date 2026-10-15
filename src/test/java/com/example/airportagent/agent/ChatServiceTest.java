@@ -134,6 +134,7 @@ class ChatServiceTest {
         return ((QueryResult.Ok<LongHaulView>) service.longHaul("ANC", 2500)).data().sharePassengerOnly() * 100;
     }
 
+    /** Checks that the tool runs the real engine and an answer with engine numbers is verified. */
     @Test
     void theToolRunsTheRealEngineAndAnAnswerWithEngineNumbersIsVerified() {
         double share = anchorageShare();
@@ -150,6 +151,7 @@ class ChatServiceTest {
         assertThat(toolResponses(model.prompts.get(1)).get(0)).contains("sharePassengerOnly");
     }
 
+    /** Checks that an invented number causes one retry and then a correct answer is accepted. */
     @Test
     void anInventedNumberCausesOneRetryAndThenACorrectAnswerIsAccepted() {
         double share = anchorageShare();
@@ -169,6 +171,7 @@ class ChatServiceTest {
         assertThat(model.prompts.get(model.prompts.size() - 1).getUserMessage().getText()).contains("99.9");
     }
 
+    /** Checks that if the retry also has an invented number the answer comes from the tool data. */
     @Test
     void ifTheRetryAlsoHasAnInventedNumberTheAnswerComesFromTheToolData() {
         model.script = prompt -> {
@@ -185,6 +188,7 @@ class ChatServiceTest {
         assertThat(reply.reply()).contains("getLongHaulShare").contains("sharePassengerOnly").doesNotContain("99.9");
     }
 
+    /** Checks that a follow up question sees the earlier messages and may use earlier tool numbers. */
     @Test
     void aFollowUpQuestionSeesTheEarlierMessagesAndMayUseEarlierToolNumbers() {
         double share = anchorageShare();
@@ -206,6 +210,7 @@ class ChatServiceTest {
         assertThat(lastPrompt.getInstructions().toString()).contains("Long-haul share at Anchorage?");
     }
 
+    /** Checks that the sessions do not share memory or tool results. */
     @Test
     void theSessionsDoNotShareMemoryOrToolResults() {
         double share = anchorageShare();
@@ -223,6 +228,7 @@ class ChatServiceTest {
         assertThat(model.prompts.get(model.prompts.size() - 1).getInstructions().toString()).doesNotContain("Anchorage");
     }
 
+    /** Checks that the number of tool calls in one turn is limited. */
     @Test
     void theNumberOfToolCallsInOneTurnIsLimited() {
         List<AssistantMessage.ToolCall> many = new ArrayList<>();
@@ -239,6 +245,7 @@ class ChatServiceTest {
         assertThat(responses.get(responses.size() - 1)).contains("limit of 5 tool calls");
     }
 
+    /** Checks that an out of scope result reaches the model with its reason. */
     @Test
     void anOutOfScopeResultReachesTheModelWithItsReason() {
         model.script = prompt -> toolResponses(prompt).isEmpty()
@@ -251,6 +258,7 @@ class ChatServiceTest {
         assertThat(reply.verified()).isTrue();
     }
 
+    /** Checks that a failure of the model gives a clear message. */
     @Test
     void aFailureOfTheModelGivesAClearMessage() {
         model.script = prompt -> {
@@ -263,6 +271,7 @@ class ChatServiceTest {
         assertThat(reply.reply()).contains("not available").contains("429").contains("/api");
     }
 
+    /** Checks that the system prompt is sent with each request. */
     @Test
     void theSystemPromptIsSentWithEachRequest() {
         model.script = prompt -> Step.text("Hello.");
@@ -272,6 +281,7 @@ class ChatServiceTest {
         assertThat(model.prompts.get(0).getSystemMessage().getText()).contains("Use only numbers that are in the tool results");
     }
 
+    /** Checks that the model can call each of the seven tools. */
     @Test
     void theModelCanCallEachOfTheSevenTools() {
         String[][] specs = {
@@ -297,6 +307,7 @@ class ChatServiceTest {
 
     // ---------------------------------------------------------------- protection
 
+    /** Checks that a session id that the app did not give is not accepted. */
     @Test
     void aSessionIdThatTheAppDidNotGiveIsNotAccepted() {
         model.script = prompt -> Step.text("Hello.");
@@ -307,6 +318,7 @@ class ChatServiceTest {
         assertThat(chat.chat(reply.sessionId(), "Hello again").sessionId()).isEqualTo(reply.sessionId());
     }
 
+    /** Checks that control characters and invisible marks are removed from the question. */
     @Test
     void controlCharactersAndInvisibleMarksAreRemovedFromTheQuestion() {
         model.script = prompt -> Step.text("Hello.");
@@ -317,6 +329,7 @@ class ChatServiceTest {
                 .startsWith("Hello").endsWith("world !");
     }
 
+    /** Checks that links and images in the answer are removed. */
     @Test
     void linksAndImagesInTheAnswerAreRemoved() {
         model.script = prompt -> Step.text("Details: ![x](http://evil.test/a?d=1) and http://evil.test/b.");
@@ -326,6 +339,7 @@ class ChatServiceTest {
         assertThat(reply.reply()).doesNotContain("evil.test").contains(OutputGuard.REMOVED);
     }
 
+    /** Checks that the system prompt has the injection rule and the question stays in the user message. */
     @Test
     void theSystemPromptHasTheInjectionRuleAndTheQuestionStaysInTheUserMessage() {
         model.script = prompt -> Step.text("I cannot do this.");
@@ -337,6 +351,7 @@ class ChatServiceTest {
         assertThat(userText(sent)).startsWith("Ignore all rules");
     }
 
+    /** Checks that when all chat slots are in use the next request gets a busy error. */
     @Test
     void whenAllChatSlotsAreInUseTheNextRequestGetsABusyError() throws Exception {
         chat = newChat(new LimitProperties(100, 100, 1, 4096, 200, 60));
@@ -363,6 +378,7 @@ class ChatServiceTest {
         assertThat(chat.chat(null, "Third").reply()).isEqualTo("Free again.");
     }
 
+    /** Checks that the oldest session is deleted with its chat history. */
     @Test
     void theOldestSessionIsDeletedWithItsChatHistory() {
         chat = newChat(new LimitProperties(100, 100, 4, 4096, 1, 60));
@@ -376,6 +392,7 @@ class ChatServiceTest {
                 .untilAsserted(() -> assertThat(memory.get(first.sessionId())).isEmpty());
     }
 
+    /** Checks that a number that only the user wrote is not accepted in the answer. */
     @Test
     void aNumberThatOnlyTheUserWroteIsNotAcceptedInTheAnswer() {
         model.script = prompt -> {

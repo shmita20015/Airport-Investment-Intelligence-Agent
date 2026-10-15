@@ -48,6 +48,7 @@ class MetricsBuilderTest {
                 Map.of(), new DatasetInfo(2025, "test"));
     }
 
+    /** Checks that calculates kpis from facts. */
     @Test
     void calculatesKpisFromFacts() {
         AirportDataset data = fullDataset();
@@ -65,6 +66,7 @@ class MetricsBuilderTest {
         assertThat(m.kpi(Kpi.ENPLANEMENTS)).isInstanceOf(MetricValue.Direct.class);
     }
 
+    /** Checks that long haul share follows the limit and the cargo choice. */
     @Test
     void longHaulShareFollowsTheLimitAndTheCargoChoice() {
         AirportDataset data = fullDataset();
@@ -77,6 +79,7 @@ class MetricsBuilderTest {
                 .isCloseTo(40_000.0 / 105_000.0, TINY);
     }
 
+    /** Checks that a tiny long haul share is set to zero in the kpi but not in the tool. */
     @Test
     void aTinyLongHaulShareIsSetToZeroInTheKpiButNotInTheTool() {
         Airport xxx = airport("XXX", 2);
@@ -92,6 +95,7 @@ class MetricsBuilderTest {
                 .isCloseTo(3.0 / 50_000, TINY);
     }
 
+    /** Checks that proxies are labeled as proxies. */
     @Test
     void proxiesAreLabeledAsProxies() {
         AirportDataset data = fullDataset();
@@ -104,6 +108,7 @@ class MetricsBuilderTest {
         assertThat(m.kpi(Kpi.DELAY15_RATE)).isInstanceOf(MetricValue.Direct.class);
     }
 
+    /** Checks that an airport without facts has missing kpis with reasons. */
     @Test
     void anAirportWithoutFactsHasMissingKpisWithReasons() {
         Airport yyy = airport("YYY", 0);
@@ -118,6 +123,7 @@ class MetricsBuilderTest {
         assertThat(m.passengers()).isZero();
     }
 
+    /** Checks that on time kpis are missing when there are too few flights. */
     @Test
     void onTimeKpisAreMissingWhenThereAreTooFewFlights() {
         Airport zzz = airport("ZZZ", 2);
@@ -132,6 +138,7 @@ class MetricsBuilderTest {
                 missing -> assertThat(missing.reason()).contains("fewer than 2000"));
     }
 
+    /** Checks that missing runway count gives no runway kpi and not zero. */
     @Test
     void missingRunwayCountGivesNoRunwayKpiAndNotZero() {
         AirportDataset data = fullDataset();

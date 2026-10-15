@@ -16,6 +16,7 @@ class CustomWeightsTest {
     private static final WeightProfile BASE = new WeightProfile("base", Map.of(
             Component.CONGESTION, 0.5, Component.GROWTH, 0.3, Component.SCALE, 0.2));
 
+    /** Checks that empty text gives the profile without change. */
     @Test
     void emptyTextGivesTheProfileWithoutChange() {
         assertThat(CustomWeights.apply(BASE, null)).isSameAs(BASE);
@@ -23,6 +24,7 @@ class CustomWeightsTest {
         assertThat(CustomWeights.apply(BASE, " , ; ")).isSameAs(BASE);
     }
 
+    /** Checks that a fraction a percentage and a number give the same weight. */
     @Test
     void aFractionAPercentageAndANumberGiveTheSameWeight() {
         for (String text : new String[] {"scale:0.1", "scale:10%", "scale:10", "Scale = 10", "SCALE=0.10"}) {
@@ -30,6 +32,7 @@ class CustomWeightsTest {
         }
     }
 
+    /** Checks that a component name may have spaces or hyphens. */
     @Test
     void aComponentNameMayHaveSpacesOrHyphens() {
         WeightProfile custom = CustomWeights.apply(BASE, "load factor:0.2, terminal-strain:0.1");
@@ -38,6 +41,7 @@ class CustomWeightsTest {
         assertThat(custom.weight(Component.TERMINAL_STRAIN)).isCloseTo(0.1, TINY);
     }
 
+    /** Checks that several weights can be given with commas or semicolons. */
     @Test
     void severalWeightsCanBeGivenWithCommasOrSemicolons() {
         WeightProfile custom = CustomWeights.apply(BASE, "congestion:0.6; growth:0.4");
@@ -47,6 +51,7 @@ class CustomWeightsTest {
         assertThat(custom.weight(Component.SCALE)).isEqualTo(0.0);
     }
 
+    /** Checks that bad text gives a clear message. */
     @Test
     void badTextGivesAClearMessage() {
         assertThatThrownBy(() -> CustomWeights.apply(BASE, "speed:1")).hasMessageContaining("Unknown component");
@@ -56,6 +61,7 @@ class CustomWeightsTest {
         assertThatThrownBy(() -> CustomWeights.apply(BASE, "scale:-0.5")).hasMessageContaining("zero or more");
     }
 
+    /** Checks that the component names are in lower case. */
     @Test
     void theComponentNamesAreInLowerCase() {
         assertThat(CustomWeights.componentNames()).contains("congestion", "load_factor", "scale").doesNotContain("SCALE");

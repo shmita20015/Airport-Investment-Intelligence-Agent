@@ -34,6 +34,7 @@ class RateLimitFilterTest {
         return call("/chat", address, "{\"message\":\"Hi\"}".getBytes());
     }
 
+    /** Checks that a client address can send only the allowed number of chat requests in a minute. */
     @Test
     void aClientAddressCanSendOnlyTheAllowedNumberOfChatRequestsInAMinute() throws Exception {
         for (int i = 0; i < 3; i++) {
@@ -47,6 +48,7 @@ class RateLimitFilterTest {
         assertThat(rejected.getContentAsString()).contains("Too many requests");
     }
 
+    /** Checks that another client address is not affected. */
     @Test
     void anotherClientAddressIsNotAffected() throws Exception {
         for (int i = 0; i < 4; i++) {
@@ -56,6 +58,7 @@ class RateLimitFilterTest {
         assertThat(chat("10.0.0.2").getStatus()).isEqualTo(200);
     }
 
+    /** Checks that the api and the chat have separate limits. */
     @Test
     void theApiAndTheChatHaveSeparateLimits() throws Exception {
         for (int i = 0; i < 4; i++) {
@@ -69,6 +72,7 @@ class RateLimitFilterTest {
         assertThat(call("/api/rank", "10.0.0.3", null).getStatus()).isEqualTo(429);
     }
 
+    /** Checks that a too large chat request is rejected before the app reads it. */
     @Test
     void aTooLargeChatRequestIsRejectedBeforeTheAppReadsIt() throws Exception {
         MockHttpServletResponse response = call("/chat", "10.0.0.4", new byte[101]);
@@ -76,6 +80,7 @@ class RateLimitFilterTest {
         assertThat(response.getStatus()).isEqualTo(413);
     }
 
+    /** Checks that a chat request without a content length is rejected. */
     @Test
     void aChatRequestWithoutAContentLengthIsRejected() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/chat") {
@@ -92,6 +97,7 @@ class RateLimitFilterTest {
         assertThat(response.getStatus()).isEqualTo(411);
     }
 
+    /** Checks that the page and other paths are not limited. */
     @Test
     void thePageAndOtherPathsAreNotLimited() throws Exception {
         for (int i = 0; i < 20; i++) {
@@ -99,6 +105,7 @@ class RateLimitFilterTest {
         }
     }
 
+    /** Checks that a rejected request does not reach the app. */
     @Test
     void aRejectedRequestDoesNotReachTheApp() throws IOException, jakarta.servlet.ServletException {
         for (int i = 0; i < 3; i++) {

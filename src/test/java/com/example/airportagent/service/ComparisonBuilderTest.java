@@ -27,6 +27,7 @@ class ComparisonBuilderTest {
                 null, components, kpis);
     }
 
+    /** Checks that the airports are sorted by the focus value from high to low. */
     @Test
     void theAirportsAreSortedByTheFocusValueFromHighToLow() {
         List<Placement> order = ComparisonBuilder.focusOrder(
@@ -37,6 +38,7 @@ class ComparisonBuilderTest {
         assertThat(ComparisonBuilder.focusGap(order)).isCloseTo(20.0, within(1e-9));
     }
 
+    /** Checks that an airport without a focus value is left out and one airport has no gap. */
     @Test
     void anAirportWithoutAFocusValueIsLeftOutAndOneAirportHasNoGap() {
         List<Placement> order = ComparisonBuilder.focusOrder(
@@ -46,6 +48,7 @@ class ComparisonBuilderTest {
         assertThat(ComparisonBuilder.focusGap(order)).isNull();
     }
 
+    /** Checks that each kpi names the highest airport and the gap. */
     @Test
     void eachKpiNamesTheHighestAirportAndTheGap() {
         List<KpiComparison> result = ComparisonBuilder.kpiComparisons(
@@ -60,6 +63,7 @@ class ComparisonBuilderTest {
         assertThat(result).extracting(KpiComparison::kpi).containsExactly(Kpi.DELAY15_RATE, Kpi.GROWTH);
     }
 
+    /** Checks that a tiny gap is a tie with no highest airport. */
     @Test
     void aTinyGapIsATieWithNoHighestAirport() {
         List<KpiComparison> result = ComparisonBuilder.kpiComparisons(
@@ -71,6 +75,7 @@ class ComparisonBuilderTest {
         assertThat(growth.lowest()).isNull();
     }
 
+    /** Checks that a kpi that only one airport has is not compared. */
     @Test
     void aKpiThatOnlyOneAirportHasIsNotCompared() {
         List<KpiComparison> result = ComparisonBuilder.kpiComparisons(

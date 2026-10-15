@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class OutputGuardTest {
 
+    /** Checks that a link that no tool result has is removed. */
     @Test
     void aLinkThatNoToolResultHasIsRemoved() {
         String result = OutputGuard.neutralize("See https://evil.test/a?x=1 and www.evil.test now.", List.of("{}"));
@@ -15,6 +16,7 @@ class OutputGuardTest {
         assertThat(result).isEqualTo("See [link removed] and [link removed] now.");
     }
 
+    /** Checks that a link from a tool result is allowed. */
     @Test
     void aLinkFromAToolResultIsAllowed() {
         String result = OutputGuard.neutralize("Source: https://nasstatus.faa.gov/api/x",
@@ -23,6 +25,7 @@ class OutputGuardTest {
         assertThat(result).contains("https://nasstatus.faa.gov/api/x");
     }
 
+    /** Checks that an image is always removed. */
     @Test
     void anImageIsAlwaysRemoved() {
         String result = OutputGuard.neutralize("![chart](https://nasstatus.faa.gov/api/x)",
@@ -31,6 +34,7 @@ class OutputGuardTest {
         assertThat(result).isEqualTo(OutputGuard.REMOVED);
     }
 
+    /** Checks that a text without links is not changed. */
     @Test
     void aTextWithoutLinksIsNotChanged() {
         String text = "BOS has a score of 73.6 (HIGH confidence).\n| a | b |";

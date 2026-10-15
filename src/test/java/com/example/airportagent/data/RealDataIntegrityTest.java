@@ -35,6 +35,7 @@ class RealDataIntegrityTest {
         builder = new MetricsBuilder(new ScoringProperties(Map.of(), Map.of(), MIN_ENPLANEMENTS, 1_000, 2_500, Map.of()));
     }
 
+    /** Checks that the data set has the expected year and size. */
     @Test
     void theDataSetHasTheExpectedYearAndSize() {
         assertThat(data.info().dataYear()).isEqualTo(2025);
@@ -42,6 +43,7 @@ class RealDataIntegrityTest {
         assertThat(rankedAirports()).hasSizeBetween(150, 300);
     }
 
+    /** Checks that every row of every file belongs to a known airport. */
     @Test
     void everyRowOfEveryFileBelongsToAKnownAirport() {
         assertThat(data.traffic().keySet()).isSubsetOf(data.airports().keySet());
@@ -50,6 +52,7 @@ class RealDataIntegrityTest {
         assertThat(data.enplanements().keySet()).isSubsetOf(data.airports().keySet());
     }
 
+    /** Checks that the airports of the example questions have all the facts. */
     @Test
     void theAirportsOfTheExampleQuestionsHaveAllTheFacts() {
         for (String code : KEY_AIRPORTS) {
@@ -61,6 +64,7 @@ class RealDataIntegrityTest {
         }
     }
 
+    /** Checks that new england airports above the size limit have traffic runways and growth. */
     @Test
     void newEnglandAirportsAboveTheSizeLimitHaveTrafficRunwaysAndGrowth() {
         List<Airport> newEngland = rankedAirports().stream()
@@ -77,6 +81,7 @@ class RealDataIntegrityTest {
         }
     }
 
+    /** Checks that new haven has traffic but no delay data. */
     @Test
     void newHavenHasTrafficButNoDelayData() {
         Airport hvn = data.airport("HVN").orElseThrow();
@@ -88,6 +93,7 @@ class RealDataIntegrityTest {
         assertThat(metrics.kpi(Kpi.TAXI_OUT_MIN)).isInstanceOf(MetricValue.Missing.class);
     }
 
+    /** Checks that anchorage long haul share matches the checked values. */
     @Test
     void anchorageLongHaulShareMatchesTheCheckedValues() {
         // Checked on 2026-10-14 with the combined T-100 table, passenger flights, 2,500 miles: 14.9 percent.
@@ -101,12 +107,14 @@ class RealDataIntegrityTest {
         assertThat(withCargo.share().getAsDouble()).isNotEqualTo(passenger.share().getAsDouble());
     }
 
+    /** Checks that san francisco long haul share matches the checked value. */
     @Test
     void sanFranciscoLongHaulShareMatchesTheCheckedValue() {
         // Checked on 2026-10-14: 18.4 percent (combined table, passenger flights, 2,500 miles).
         assertThat(builder.longHaulResult(data, "SFO", 2_500, false).share().getAsDouble()).isBetween(0.17, 0.20);
     }
 
+    /** Checks that hub classes and states are read. */
     @Test
     void hubClassesAndStatesAreRead() {
         assertThat(data.airport("LAX").orElseThrow().hubClass()).isEqualTo(HubClass.LARGE);
@@ -115,6 +123,7 @@ class RealDataIntegrityTest {
         assertThat(data.airport("SFO").orElseThrow().state()).isEqualTo("CA");
     }
 
+    /** Checks that aliases resolve the names of the example questions. */
     @Test
     void aliasesResolveTheNamesOfTheExampleQuestions() {
         assertThat(data.aliases()).containsEntry("la", "LAX").containsEntry("santa ana", "SNA")
@@ -122,6 +131,7 @@ class RealDataIntegrityTest {
         assertThat(data.aliases().values()).allSatisfy(code -> assertThat(data.airports()).containsKey(code));
     }
 
+    /** Checks that west palm beach has one record with the bts code. */
     @Test
     void westPalmBeachHasOneRecordWithTheBtsCode() {
         // OurAirports and the FAA CY2025 file say DJT. BTS and the FAA CY2024 file say PBI. The app uses PBI.
@@ -131,6 +141,7 @@ class RealDataIntegrityTest {
         assertThat(data.enplanements().get("PBI").cy25()).isPresent();
     }
 
+    /** Checks that foreign airports are not in the data. */
     @Test
     void foreignAirportsAreNotInTheData() {
         // Foreign airports use codes like these. A code match with a small US airfield must not add them.

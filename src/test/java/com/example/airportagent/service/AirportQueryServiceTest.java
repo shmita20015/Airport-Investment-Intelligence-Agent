@@ -65,6 +65,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- ranking
 
+    /** Checks that new england terminal ranking starts with boston and stays in the region. */
     @Test
     void newEnglandTerminalRankingStartsWithBostonAndStaysInTheRegion() {
         QueryResult.Ok<RankingView> result = ok(service.rank("NEW_ENGLAND", "terminal", 10));
@@ -80,6 +81,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().profile()).isEqualTo("terminal");
     }
 
+    /** Checks that the national terminal top ten are large airports and a fast growing mid size airport is below them. */
     @Test
     void theNationalTerminalTopTenAreLargeAirportsAndAFastGrowingMidSizeAirportIsBelowThem() {
         List<RankedItem> items = ok(service.rank("ALL", "terminal", 50)).data().items();
@@ -94,6 +96,7 @@ class AirportQueryServiceTest {
         assertThat(provo).isGreaterThan(jfk);
     }
 
+    /** Checks that ranking uses only airports above the size limit. */
     @Test
     void rankingUsesOnlyAirportsAboveTheSizeLimit() {
         QueryResult.Ok<RankingView> result = ok(service.rank("ALL", "general", 50));
@@ -106,6 +109,7 @@ class AirportQueryServiceTest {
         }
     }
 
+    /** Checks that ranking shows lower coverage of airports without delay data. */
     @Test
     void rankingShowsLowerCoverageOfAirportsWithoutDelayData() {
         QueryResult.Ok<RankingView> result = ok(service.rank("NEW_ENGLAND", "terminal", 10));
@@ -118,6 +122,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().uncertainties()).anyMatch(text -> text.startsWith("HVN: no data for"));
     }
 
+    /** Checks that ranking states the limits in the envelope. */
     @Test
     void rankingStatesTheLimitsInTheEnvelope() {
         QueryResult.Ok<RankingView> result = ok(service.rank("NEW_ENGLAND", "terminal", 5));
@@ -128,6 +133,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().sources()).isNotEmpty();
     }
 
+    /** Checks that top n is limited to the allowed range. */
     @Test
     void topNIsLimitedToTheAllowedRange() {
         assertThat(ok(service.rank("ALL", "general", 1000)).data().items()).hasSize(AirportQueryService.MAX_TOP_N);
@@ -135,6 +141,7 @@ class AirportQueryServiceTest {
         assertThat(ok(service.rank("ALL", null, null)).data().items()).hasSize(AirportQueryService.DEFAULT_TOP_N);
     }
 
+    /** Checks that unknown profile or region gives a clear gap. */
     @Test
     void unknownProfileOrRegionGivesAClearGap() {
         assertThat(service.rank("NEW_ENGLAND", "nonsense", 5)).isInstanceOfSatisfying(QueryResult.NotAvailable.class,
@@ -143,6 +150,7 @@ class AirportQueryServiceTest {
                 na -> assertThat(na.reason()).contains("Unknown region"));
     }
 
+    /** Checks that regions can be a name a state code or a list. */
     @Test
     void regionsCanBeANameAStateCodeOrAList() {
         assertThat(ok(service.rank("WEST_COAST", "general", 50)).data().items())
@@ -156,6 +164,7 @@ class AirportQueryServiceTest {
         assertThat(ok(service.rank(null, "terminal", 3)).data().region()).isEqualTo("ALL");
     }
 
+    /** Checks that a broad region contains its divisions. */
     @Test
     void aBroadRegionContainsItsDivisions() {
         List<String> northeast = ok(service.rank("NORTHEAST", "general", 50)).data().items().stream()
@@ -164,6 +173,7 @@ class AirportQueryServiceTest {
         assertThat(northeast).contains("BOS", "JFK", "PHL", "PWM");
     }
 
+    /** Checks that a region rank is counted inside the region and the national rank is kept. */
     @Test
     void aRegionRankIsCountedInsideTheRegionAndTheNationalRankIsKept() {
         RankedItem first = ok(service.rank("TX", "general", 1)).data().items().get(0);
@@ -172,6 +182,7 @@ class AirportQueryServiceTest {
         assertThat(first.nationalRank()).isGreaterThan(1);
     }
 
+    /** Checks that an unknown region lists the known names. */
     @Test
     void anUnknownRegionListsTheKnownNames() {
         assertThat(service.rank("Atlantis", "general", 5)).isInstanceOfSatisfying(QueryResult.NotAvailable.class,
@@ -180,6 +191,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- one airport
 
+    /** Checks that airport profile shows kpis with quality tags and percentiles. */
     @Test
     void airportProfileShowsKpisWithQualityTagsAndPercentiles() {
         AirportProfileView view = ok(service.airportProfile("SFO", "terminal")).data();
@@ -197,6 +209,7 @@ class AirportQueryServiceTest {
         assertThat(points).isCloseTo(view.score().value(), org.assertj.core.data.Offset.offset(1e-9));
     }
 
+    /** Checks that an airport below the size limit is marked and not ranked. */
     @Test
     void anAirportBelowTheSizeLimitIsMarkedAndNotRanked() {
         QueryResult<AirportProfileView> result = service.airportProfile("PSM", "general");
@@ -209,6 +222,7 @@ class AirportQueryServiceTest {
                 .extracting(i -> i.airport().iata()).doesNotContain("PSM");
     }
 
+    /** Checks that an unknown airport is out of scope. */
     @Test
     void anUnknownAirportIsOutOfScope() {
         assertThat(service.airportProfile("ZZZ", "general")).isInstanceOfSatisfying(QueryResult.OutOfScope.class,
@@ -218,6 +232,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- comparison
 
+    /** Checks that lax and sna comparison warns about different hub classes. */
     @Test
     void laxAndSnaComparisonWarnsAboutDifferentHubClasses() {
         QueryResult.Ok<ComparisonView> result = ok(service.compare(List.of("LAX", "SNA"), "congestion"));
@@ -232,6 +247,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().assumptions()).anyMatch(text -> text.contains("operations per runway"));
     }
 
+    /** Checks that the comparison says which airport is higher and by how much. */
     @Test
     void theComparisonSaysWhichAirportIsHigherAndByHowMuch() {
         ComparisonView view = ok(service.compare(List.of("SNA", "LAX"), "congestion")).data();
@@ -251,6 +267,7 @@ class AirportQueryServiceTest {
         assertThat(ops.lowest()).isEqualTo("SNA");
     }
 
+    /** Checks that a profile focus sorts by the score of that profile. */
     @Test
     void aProfileFocusSortsByTheScoreOfThatProfile() {
         ComparisonView view = ok(service.compare(List.of("SNA", "LAX", "BOS"), "terminal")).data();
@@ -259,12 +276,14 @@ class AirportQueryServiceTest {
         assertThat(view.focusOrder()).hasSize(3);
     }
 
+    /** Checks that comparison with an unknown code is partial. */
     @Test
     void comparisonWithAnUnknownCodeIsPartial() {
         assertThat(service.compare(List.of("LAX", "ZZZ"), "congestion")).isInstanceOfSatisfying(
                 QueryResult.Partial.class, partial -> assertThat(partial.missing().toString()).contains("ZZZ is not in the data"));
     }
 
+    /** Checks that comparison needs at least two airports. */
     @Test
     void comparisonNeedsAtLeastTwoAirports() {
         assertThat(service.compare(List.of("LAX"), "congestion")).isInstanceOf(QueryResult.NotAvailable.class);
@@ -273,6 +292,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- long-haul share
 
+    /** Checks that anchorage long haul shows both values and the cargo effect. */
     @Test
     void anchorageLongHaulShowsBothValuesAndTheCargoEffect() {
         QueryResult.Ok<LongHaulView> result = ok(service.longHaul("ANC", null));
@@ -287,6 +307,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().uncertainties()).anyMatch(text -> text.contains("foreign airlines"));
     }
 
+    /** Checks that long haul limit is rounded down and the answer says so. */
     @Test
     void longHaulLimitIsRoundedDownAndTheAnswerSaysSo() {
         QueryResult.Ok<LongHaulView> result = ok(service.longHaul("ANC", 2600));
@@ -296,6 +317,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().uncertainties()).anyMatch(text -> text.contains("rounded down to 2500"));
     }
 
+    /** Checks that a lower limit gives a higher share. */
     @Test
     void aLowerLimitGivesAHigherShare() {
         double at2500 = ok(service.longHaul("ANC", 2500)).data().sharePassengerOnly();
@@ -304,6 +326,7 @@ class AirportQueryServiceTest {
         assertThat(at1500).isGreaterThan(at2500);
     }
 
+    /** Checks that long haul rejects a negative limit and unknown airports. */
     @Test
     void longHaulRejectsANegativeLimitAndUnknownAirports() {
         assertThat(service.longHaul("ANC", -5)).isInstanceOf(QueryResult.NotAvailable.class);
@@ -312,6 +335,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- unmet demand
 
+    /** Checks that san francisco unmet demand is a labeled proxy with its reasons. */
     @Test
     void sanFranciscoUnmetDemandIsALabeledProxyWithItsReasons() {
         QueryResult.Ok<UnmetDemandView> result = ok(service.unmetDemand("SFO"));
@@ -330,6 +354,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().outOfScope()).anyMatch(text -> text.contains("count of unserved flights"));
     }
 
+    /** Checks that airports without an expert note have none. */
     @Test
     void airportsWithoutAnExpertNoteHaveNone() {
         assertThat(ok(service.unmetDemand("LAX")).data().expertNote()).isNull();
@@ -337,6 +362,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- live status
 
+    /** Checks that live status comes from the faa client. */
     @Test
     void liveStatusComesFromTheFaaClient() {
         LIVE_FAILS.set(false);
@@ -347,6 +373,7 @@ class AirportQueryServiceTest {
         assertThat(result.envelope().assumptions()).anyMatch(text -> text.contains("does not change any score"));
     }
 
+    /** Checks that a failed live call is a gap and not an error. */
     @Test
     void aFailedLiveCallIsAGapAndNotAnError() {
         LIVE_FAILS.set(true);
@@ -360,6 +387,7 @@ class AirportQueryServiceTest {
 
     // ---------------------------------------------------------------- name lookup
 
+    /** Checks that names of the example questions resolve to the right airports. */
     @Test
     void namesOfTheExampleQuestionsResolveToTheRightAirports() {
         assertThat(resolved("LA")).isEqualTo("LAX");
@@ -372,6 +400,7 @@ class AirportQueryServiceTest {
         assertThat(resolved("Boston Logan")).isEqualTo("BOS");
     }
 
+    /** Checks that an ambiguous name is not resolved and lists the options. */
     @Test
     void anAmbiguousNameIsNotResolvedAndListsTheOptions() {
         Resolution resolution = ok(service.resolveAirport("Portland")).data();
@@ -381,6 +410,7 @@ class AirportQueryServiceTest {
         assertThat(resolution.alternatives()).extracting(c -> c.airport().iata()).contains("PDX", "PWM");
     }
 
+    /** Checks that unknown or empty names are out of scope. */
     @Test
     void unknownOrEmptyNamesAreOutOfScope() {
         assertThat(service.resolveAirport("Heathrow")).isInstanceOf(QueryResult.OutOfScope.class);
@@ -388,6 +418,7 @@ class AirportQueryServiceTest {
         assertThat(service.resolveAirport(null)).isInstanceOf(QueryResult.OutOfScope.class);
     }
 
+    /** Checks that the methodology shows the profiles from the settings. */
     @Test
     void theMethodologyShowsTheProfilesFromTheSettings() {
         Views.MethodologyView view = ok(service.methodology()).data();
@@ -400,6 +431,7 @@ class AirportQueryServiceTest {
         assertThat(view.minEnplanements()).isEqualTo(100_000);
     }
 
+    /** Checks that the tools accept a name and a code. */
     @Test
     void theToolsAcceptANameAndACode() {
         double byCode = ok(service.longHaul("ANC", 2500)).data().sharePassengerOnly();
@@ -409,6 +441,7 @@ class AirportQueryServiceTest {
                 .extracting(a -> a.airport().iata()).containsExactly("LAX", "SNA");
     }
 
+    /** Checks that a name with more than one airport asks the caller to choose. */
     @Test
     void aNameWithMoreThanOneAirportAsksTheCallerToChoose() {
         QueryResult<LongHaulView> result = service.longHaul("Portland", 2500);
@@ -419,6 +452,7 @@ class AirportQueryServiceTest {
         });
     }
 
+    /** Checks that a very long name is rejected before the search. */
     @Test
     void aVeryLongNameIsRejectedBeforeTheSearch() {
         assertThat(service.longHaul("A".repeat(AirportResolver.MAX_QUERY_LENGTH + 1), 2500))
@@ -437,6 +471,7 @@ class AirportQueryServiceTest {
         return items.stream().map(i -> i.airport().iata()).toList().indexOf(iata);
     }
 
+    /** Checks that ignoring scale moves a fast growing mid size airport up. */
     @Test
     void ignoringScaleMovesAFastGrowingMidSizeAirportUp() {
         List<RankedItem> normal = ok(service.rank("ALL", "terminal", 50)).data().items();
@@ -452,6 +487,7 @@ class AirportQueryServiceTest {
         assertThat(before < 0 || after < before).as("PVU moves up: before=" + before + " after=" + after).isTrue();
     }
 
+    /** Checks that custom weights are labeled in the envelope. */
     @Test
     void customWeightsAreLabeledInTheEnvelope() {
         QueryResult.Ok<RankingView> result = ok(service.rank("NEW_ENGLAND", "terminal", 5, "congestion:0.5"));
@@ -461,6 +497,7 @@ class AirportQueryServiceTest {
         assertThat(result.data().weights().get("congestion")).isEqualTo(0.5);
     }
 
+    /** Checks that weights can be fractions or percentages. */
     @Test
     void weightsCanBeFractionsOrPercentages() {
         Map<String, Double> fraction = ok(service.rank("ALL", "terminal", 3, "congestion:0.5")).data().weights();
@@ -471,6 +508,7 @@ class AirportQueryServiceTest {
         assertThat(number).isEqualTo(fraction);
     }
 
+    /** Checks that no weights give the normal profile. */
     @Test
     void noWeightsGiveTheNormalProfile() {
         assertThat(ok(service.rank("ALL", "terminal", 5, "  ")).data().profile()).isEqualTo("terminal");
@@ -479,6 +517,7 @@ class AirportQueryServiceTest {
                 .isEqualTo(ok(service.rank("ALL", "terminal", 5)).data().items().stream().map(i -> i.airport().iata()).toList());
     }
 
+    /** Checks that bad weights give a clear gap with the component names. */
     @Test
     void badWeightsGiveAClearGapWithTheComponentNames() {
         for (String bad : List.of("speed:0.5", "scale", "scale:abc", "scale:150%", "scale:-0.2", "scale:0:1")) {
@@ -487,6 +526,7 @@ class AirportQueryServiceTest {
         }
     }
 
+    /** Checks that the comparison accepts custom weights for a profile focus but not for congestion. */
     @Test
     void theComparisonAcceptsCustomWeightsForAProfileFocusButNotForCongestion() {
         ComparisonView view = ok(service.compare(List.of("BOS", "LAX"), "terminal", "scale:0")).data();
@@ -496,6 +536,7 @@ class AirportQueryServiceTest {
                 .isInstanceOf(QueryResult.NotAvailable.class);
     }
 
+    /** Checks that the methodology lists the regions. */
     @Test
     void theMethodologyListsTheRegions() {
         assertThat(ok(service.methodology()).data().regions()).contains("NEW_ENGLAND", "WEST_COAST", "MIDWEST");

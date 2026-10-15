@@ -11,6 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PercentilesTest {
 
+    /** Checks that ranks values with the mid rank formula. */
     @Test
     void ranksValuesWithTheMidRankFormula() {
         // values 10, 20, 30, 40: rank(x) = 100 x (below + 0.5 x equal) / 4
@@ -25,6 +26,7 @@ class PercentilesTest {
         assertThat(p.rank(Kpi.GROWTH, 40).getAsDouble()).isEqualTo(87.5);
     }
 
+    /** Checks that value between peers has no equal part. */
     @Test
     void valueBetweenPeersHasNoEqualPart() {
         Percentiles p = Percentiles.of(List.of(
@@ -36,6 +38,7 @@ class PercentilesTest {
         assertThat(p.rank(Kpi.GROWTH, 25).getAsDouble()).isEqualTo(50.0);
     }
 
+    /** Checks that equal values get the same percentile. */
     @Test
     void equalValuesGetTheSamePercentile() {
         Percentiles p = Percentiles.of(List.of(
@@ -47,6 +50,7 @@ class PercentilesTest {
         assertThat(p.rank(Kpi.GROWTH, 10).getAsDouble()).isCloseTo(33.3333, org.assertj.core.data.Offset.offset(1e-3));
     }
 
+    /** Checks that missing values are not in the peer set. */
     @Test
     void missingValuesAreNotInThePeerSet() {
         AirportMetrics noGrowth = airport("C", 1, Kpi.LOAD_FACTOR, 0.8);
@@ -58,6 +62,7 @@ class PercentilesTest {
         assertThat(p.rank(Kpi.GROWTH, 20).getAsDouble()).isEqualTo(75.0);
     }
 
+    /** Checks that empty when no peer has the kpi. */
     @Test
     void emptyWhenNoPeerHasTheKpi() {
         Percentiles p = Percentiles.of(List.of(airport("A", 1, Kpi.GROWTH, 10)));

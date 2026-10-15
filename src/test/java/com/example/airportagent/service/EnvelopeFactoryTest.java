@@ -34,18 +34,21 @@ class EnvelopeFactoryTest {
         return factory.build("general", Map.of(), Confidence.HIGH, List.of(), List.of(), List.of());
     }
 
+    /** Checks that fresh data has no age warning. */
     @Test
     void freshDataHasNoAgeWarning() {
         assertThat(envelopeAt(Duration.ofDays(EnvelopeFactory.OLD_DATA_DAYS - 1)).uncertainties())
                 .noneMatch(text -> text.contains("days old"));
     }
 
+    /** Checks that old data gets an age warning with the number of days. */
     @Test
     void oldDataGetsAnAgeWarningWithTheNumberOfDays() {
         assertThat(envelopeAt(Duration.ofDays(EnvelopeFactory.OLD_DATA_DAYS + 10)).uncertainties())
                 .anyMatch(text -> text.contains((EnvelopeFactory.OLD_DATA_DAYS + 10) + " days old"));
     }
 
+    /** Checks that every envelope names the data year the size limit and the sources. */
     @Test
     void everyEnvelopeNamesTheDataYearTheSizeLimitAndTheSources() {
         Envelope envelope = envelopeAt(Duration.ZERO);

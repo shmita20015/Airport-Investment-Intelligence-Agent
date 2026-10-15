@@ -18,11 +18,13 @@ class StartsWithoutApiKeyTest {
     @Autowired
     private ChatService chat;
 
+    /** Checks that the engine works without a key. */
     @Test
     void theEngineWorksWithoutAKey() {
         assertThat(service.longHaul("ANC", 2500)).isInstanceOf(QueryResult.Ok.class);
     }
 
+    /** Checks that the chat gives a clear message without a key. */
     @Test
     void theChatGivesAClearMessageWithoutAKey() {
         ChatReply reply = chat.chat("s1", "Hello");

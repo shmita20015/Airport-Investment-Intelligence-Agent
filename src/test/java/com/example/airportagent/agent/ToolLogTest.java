@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ToolLogTest {
 
+    /** Checks that a turn allows only the maximum number of calls. */
     @Test
     void aTurnAllowsOnlyTheMaximumNumberOfCalls() {
         ToolLog log = new ToolLog();
@@ -17,6 +18,7 @@ class ToolLogTest {
         assertThat(log.allowCall()).isFalse();
     }
 
+    /** Checks that a new turn resets the call count. */
     @Test
     void aNewTurnResetsTheCallCount() {
         ToolLog log = new ToolLog();
@@ -30,6 +32,7 @@ class ToolLogTest {
         assertThat(log.allowCall()).isTrue();
     }
 
+    /** Checks that the results of the last turn stay available for a follow up. */
     @Test
     void theResultsOfTheLastTurnStayAvailableForAFollowUp() {
         ToolLog log = new ToolLog();
@@ -43,6 +46,7 @@ class ToolLogTest {
         assertThat(log.allJson()).containsExactly("{\"a\":1}");
     }
 
+    /** Checks that only the newest earlier results are kept. */
     @Test
     void onlyTheNewestEarlierResultsAreKept() {
         ToolLog log = new ToolLog();

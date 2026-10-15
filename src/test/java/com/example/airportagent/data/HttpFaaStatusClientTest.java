@@ -31,6 +31,7 @@ class HttpFaaStatusClientTest {
             </AIRPORT_STATUS_INFORMATION>
             """;
 
+    /** Checks that reads a ground stop and counts restriction notices separately. */
     @Test
     void readsAGroundStopAndCountsRestrictionNoticesSeparately() throws IOException {
         LiveStatus lax = HttpFaaStatusClient.parse(SAMPLE, "LAX");
@@ -44,6 +45,7 @@ class HttpFaaStatusClientTest {
         assertThat(lax.restrictionNotices()).isEqualTo(1);
     }
 
+    /** Checks that reads a full closure. */
     @Test
     void readsAFullClosure() throws IOException {
         LiveStatus sna = HttpFaaStatusClient.parse(SAMPLE, "SNA");
@@ -55,6 +57,7 @@ class HttpFaaStatusClientTest {
         assertThat(sna.restrictionNotices()).isZero();
     }
 
+    /** Checks that an airport that is not in the list has no active event. */
     @Test
     void anAirportThatIsNotInTheListHasNoActiveEvent() throws IOException {
         LiveStatus sfo = HttpFaaStatusClient.parse(SAMPLE, "sfo");
@@ -63,6 +66,7 @@ class HttpFaaStatusClientTest {
         assertThat(sfo.events()).isEmpty();
     }
 
+    /** Checks that rejects xml with a doctype. */
     @Test
     void rejectsXmlWithADoctype() {
         String evil = "<?xml version=\"1.0\"?><!DOCTYPE a [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><a>&x;</a>";
@@ -70,6 +74,7 @@ class HttpFaaStatusClientTest {
         assertThatThrownBy(() -> HttpFaaStatusClient.parse(evil, "SFO")).isInstanceOf(IOException.class);
     }
 
+    /** Checks that rejects text that is not xml. */
     @Test
     void rejectsTextThatIsNotXml() {
         assertThatThrownBy(() -> HttpFaaStatusClient.parse("not xml", "SFO")).isInstanceOf(IOException.class);
@@ -90,6 +95,7 @@ class HttpFaaStatusClientTest {
         assertThat(status.airport()).isEqualTo("SFO");
     }
 
+    /** Checks that text from the faa service is cleaned before the llm sees it. */
     @Test
     void textFromTheFaaServiceIsCleanedBeforeTheLlmSeesIt() throws IOException {
         String xml = "<AIRPORT_STATUS_INFORMATION><Update_Time>now</Update_Time><Delay_type><Name>Ground Stop Programs</Name>"
@@ -103,6 +109,7 @@ class HttpFaaStatusClientTest {
         assertThat(reason).startsWith("storm.");
     }
 
+    /** Checks that one call to the faa service serves many questions in the cache time. */
     @Test
     void oneCallToTheFaaServiceServesManyQuestionsInTheCacheTime() throws IOException {
         int[] calls = {0};
@@ -123,6 +130,7 @@ class HttpFaaStatusClientTest {
         assertThat(calls[0]).isEqualTo(2);
     }
 
+    /** Checks that a failed call is not kept. */
     @Test
     void aFailedCallIsNotKept() throws IOException {
         int[] calls = {0};

@@ -28,6 +28,7 @@ class RateLimitIntegrationTest {
         return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
+    /** Checks that the chat is limited for one client. */
     @Test
     void theChatIsLimitedForOneClient() throws Exception {
         assertThat(postChat("{\"message\":\"Hello\"}").statusCode()).isEqualTo(200);
@@ -39,6 +40,7 @@ class RateLimitIntegrationTest {
         assertThat(third.headers().firstValue("Retry-After")).isPresent();
     }
 
+    /** Checks that the api is limited for one client. */
     @Test
     void theApiIsLimitedForOneClient() throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/airport/ANC/long-haul")).GET().build();
@@ -50,6 +52,7 @@ class RateLimitIntegrationTest {
         assertThat(last).isEqualTo(429);
     }
 
+    /** Checks that a large chat body is rejected. */
     @Test
     void aLargeChatBodyIsRejected() throws Exception {
         assertThat(postChat("{\"message\":\"" + "a".repeat(400) + "\"}").statusCode()).isEqualTo(413);

@@ -24,6 +24,7 @@ class RegionParserTest {
                 Map.of("NEW_ENGLAND", List.of("CT", "MA"), "WEST_COAST", List.of("CA", "OR", "WA"))), data);
     }
 
+    /** Checks that empty text and the words for the whole country give all airports. */
     @Test
     void emptyTextAndTheWordsForTheWholeCountryGiveAllAirports() {
         for (String text : new String[] {null, "", "  ", "ALL", "us", "National", "CA, ALL"}) {
@@ -34,6 +35,7 @@ class RegionParserTest {
         }
     }
 
+    /** Checks that a region name is read with any case spaces or hyphens. */
     @Test
     void aRegionNameIsReadWithAnyCaseSpacesOrHyphens() {
         for (String text : new String[] {"NEW_ENGLAND", "new england", "New-England"}) {
@@ -44,6 +46,7 @@ class RegionParserTest {
         }
     }
 
+    /** Checks that a state code and a list of both are read. */
     @Test
     void aStateCodeAndAListOfBothAreRead() {
         assertThat(parser.parse("TX").contains(data.airport("DFW").orElseThrow())).isTrue();
@@ -55,11 +58,13 @@ class RegionParserTest {
         assertThat(list.contains(data.airport("LAX").orElseThrow())).isFalse();
     }
 
+    /** Checks that an unknown part gives a clear message. */
     @Test
     void anUnknownPartGivesAClearMessage() {
         assertThatThrownBy(() -> parser.parse("TX, Atlantis")).hasMessageContaining("Unknown region: Atlantis");
     }
 
+    /** Checks that the known regions list the names and the other forms. */
     @Test
     void theKnownRegionsListTheNamesAndTheOtherForms() {
         assertThat(parser.knownRegions()).contains("NEW_ENGLAND", "WEST_COAST", "ALL");

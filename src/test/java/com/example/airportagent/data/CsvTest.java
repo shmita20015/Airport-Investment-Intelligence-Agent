@@ -16,6 +16,7 @@ class CsvTest {
         return Csv.read(new StringReader(text));
     }
 
+    /** Checks that reads rows as maps and skips blank lines. */
     @Test
     void readsRowsAsMapsAndSkipsBlankLines() throws IOException {
         List<Map<String, String>> rows = read("iata,name\nSFO,\"San Francisco, Intl\"\n\nLAX,Los Angeles\n");
@@ -25,6 +26,7 @@ class CsvTest {
         assertThat(rows.get(1)).containsEntry("iata", "LAX");
     }
 
+    /** Checks that keeps doubled quotes and empty fields. */
     @Test
     void keepsDoubledQuotesAndEmptyFields() throws IOException {
         List<Map<String, String>> rows = read("a,b,c\n\"He said \"\"hi\"\"\",,x\n");

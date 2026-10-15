@@ -2,7 +2,7 @@
 
 Status: draft 1. Date of the data checks: 2026-10-14.
 
-This document explains the full design. It lists each decision, each assumption and each limit.
+This document is the appendix of `DESIGN.md`. `DESIGN.md` is the short deliverable. This document explains the full design. It lists each decision, each assumption and each limit.
 Items marked **VERIFIED** were tested with real requests on 2026-10-14.
 Items marked **PROPOSED** are design choices that the author can change.
 Items marked **NOT VERIFIED** were not tested yet.
@@ -841,7 +841,7 @@ Checks that are still open: browser support for voice, and the real behavior of 
 ## 22. Protection against a heavy load and prompt injection
 
 ### 22.1 Threats and the protection
-See section 7 of `DESIGN.md` for the table. This section has the details and the reasons.
+See section 7 of `DESIGN.md` for the short summary. This section has the details and the reasons.
 
 **Heavy load**
 - The chat is the expensive part. Each question makes 2 to 6 LLM requests, and the free tier of Gemini has a small daily limit. A client that sends many questions can use the whole limit for all users.

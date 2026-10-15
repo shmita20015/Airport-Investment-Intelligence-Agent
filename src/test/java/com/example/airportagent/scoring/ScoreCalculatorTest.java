@@ -32,6 +32,7 @@ class ScoreCalculatorTest {
     private final AirportMetrics b = airport("B", 100, Kpi.GROWTH, 2, Kpi.LOAD_FACTOR, 0.7);
     private final AirportMetrics c = airport("C", 100, Kpi.GROWTH, 3, Kpi.LOAD_FACTOR, 0.8);
 
+    /** Checks that scores match values calculated by hand. */
     @Test
     void scoresMatchValuesCalculatedByHand() {
         List<Score> ranked = calculator.rank(List.of(a, b, c), growthAndLoad, 10);
@@ -43,6 +44,7 @@ class ScoreCalculatorTest {
         assertThat(ranked.get(2).value()).isCloseTo(33.3333333333, Offset.offset(1e-6));
     }
 
+    /** Checks that contributions add up to the score and are sorted by points. */
     @Test
     void contributionsAddUpToTheScoreAndAreSortedByPoints() {
         Score score = calculator.rank(List.of(a, b, c), growthAndLoad, 10).get(1); // A
@@ -53,6 +55,7 @@ class ScoreCalculatorTest {
                 java.util.Comparator.reverseOrder());
     }
 
+    /** Checks that higher kpi never gives a lower score. */
     @Test
     void higherKpiNeverGivesALowerScore() {
         AirportMetrics p1 = airport("P1", 1, Kpi.GROWTH, 2, Kpi.LOAD_FACTOR, 0.7);
@@ -69,6 +72,7 @@ class ScoreCalculatorTest {
         }
     }
 
+    /** Checks that missing component is removed and not scored as zero. */
     @Test
     void missingComponentIsRemovedAndNotScoredAsZero() {
         AirportMetrics d = airport("D", 100, Kpi.GROWTH, 4); // no load factor
@@ -85,6 +89,7 @@ class ScoreCalculatorTest {
                 .satisfies(contribution -> assertThat(contribution.weight()).isCloseTo(1.0, TINY));
     }
 
+    /** Checks that a missing kpi inside a component lowers the coverage. */
     @Test
     void aMissingKpiInsideAComponentLowersTheCoverage() {
         // Congestion has 4 KPIs. X has only 1 of them (the runway KPI), so 3 of 4 KPIs are missing.
@@ -106,6 +111,7 @@ class ScoreCalculatorTest {
         assertThat(sy.missingKpis()).isEmpty();
     }
 
+    /** Checks that no data gives no score. */
     @Test
     void noDataGivesNoScore() {
         AirportMetrics empty = airport("E", 100);
@@ -114,6 +120,7 @@ class ScoreCalculatorTest {
         assertThat(calculator.rank(List.of(a, empty), growthAndLoad, 10)).extracting(Score::iata).containsExactly("A");
     }
 
+    /** Checks that congestion is the mean of its available kpi percentiles. */
     @Test
     void congestionIsTheMeanOfItsAvailableKpiPercentiles() {
         // Delay percentiles (N=3): 16.667, 50, 83.333. Taxi percentiles: 50, 16.667, 83.333.
@@ -130,6 +137,7 @@ class ScoreCalculatorTest {
         assertThat(xv).doesNotContainKey(Component.GROWTH);
     }
 
+    /** Checks that equal scores are ordered by passengers then by code. */
     @Test
     void equalScoresAreOrderedByPassengersThenByCode() {
         AirportMetrics x = airport("XXX", 200, Kpi.GROWTH, 1);
@@ -142,12 +150,14 @@ class ScoreCalculatorTest {
         assertThat(ranked).extracting(Score::iata).containsExactly("XXX", "YYY", "ZZZ");
     }
 
+    /** Checks that top n limits the result. */
     @Test
     void topNLimitsTheResult() {
         assertThat(calculator.rank(List.of(a, b, c), growthAndLoad, 2)).hasSize(2);
         assertThat(calculator.rank(List.of(a, b, c), growthAndLoad, 0)).isEmpty();
     }
 
+    /** Checks that proxy kpi is marked in the trace. */
     @Test
     void proxyKpiIsMarkedInTheTrace() {
         Map<Kpi, MetricValue> kpis = Map.of(
@@ -193,6 +203,7 @@ class ScoreCalculatorTest {
         assertThat(ranked.get(3).value()).isCloseTo(31.25, TINY);
     }
 
+    /** Checks that the scale component lets a larger airport outrank a smaller one with faster growth. */
     @Test
     void theScaleComponentLetsALargerAirportOutrankASmallerOneWithFasterGrowth() {
         WeightProfile growthAndScale = profile("gs", Component.GROWTH, 0.4, Component.SCALE, 0.6);
@@ -210,6 +221,7 @@ class ScoreCalculatorTest {
         assertThat(ranked.get(2).value()).isCloseTo(43.3333333333, Offset.offset(1e-6));
     }
 
+    /** Checks that confidence bands follow coverage. */
     @Test
     void confidenceBandsFollowCoverage() {
         assertThat(Confidence.fromCoverage(1.0)).isEqualTo(Confidence.HIGH);

@@ -18,6 +18,7 @@ class LongHaulCalculatorTest {
             new Bucket(2500, 10, 30),
             new Bucket(3000, 10, 10));
 
+    /** Checks that passenger only share at the limit. */
     @Test
     void passengerOnlyShareAtTheLimit() {
         Result r = LongHaulCalculator.share(BUCKETS, 2500, false);
@@ -28,6 +29,7 @@ class LongHaulCalculatorTest {
         assertThat(r.includesCargo()).isFalse();
     }
 
+    /** Checks that share with cargo uses all departures. */
     @Test
     void shareWithCargoUsesAllDepartures() {
         Result r = LongHaulCalculator.share(BUCKETS, 2500, true);
@@ -36,6 +38,7 @@ class LongHaulCalculatorTest {
         assertThat(r.share().getAsDouble()).isEqualTo(0.40);
     }
 
+    /** Checks that rounds the limit down to the bucket edge and says so. */
     @Test
     void roundsTheLimitDownToTheBucketEdgeAndSaysSo() {
         Result r = LongHaulCalculator.share(BUCKETS, 2600, false);
@@ -45,6 +48,7 @@ class LongHaulCalculatorTest {
         assertThat(r.limitWasRounded()).isTrue();
     }
 
+    /** Checks that lower limit gives a higher or equal share. */
     @Test
     void lowerLimitGivesAHigherOrEqualShare() {
         double high = LongHaulCalculator.share(BUCKETS, 2500, false).share().getAsDouble();
@@ -53,11 +57,13 @@ class LongHaulCalculatorTest {
         assertThat(low).isGreaterThanOrEqualTo(high);
     }
 
+    /** Checks that empty when there are no departures. */
     @Test
     void emptyWhenThereAreNoDepartures() {
         assertThat(LongHaulCalculator.share(List.of(), 2500, false).share()).isEmpty();
     }
 
+    /** Checks that rejects negative limit. */
     @Test
     void rejectsNegativeLimit() {
         assertThatThrownBy(() -> LongHaulCalculator.share(BUCKETS, -1, false))

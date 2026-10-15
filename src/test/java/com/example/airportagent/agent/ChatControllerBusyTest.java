@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 /** The controller turns a busy chat into HTTP 503 with a Retry-After header. */
 class ChatControllerBusyTest {
 
+    /** Checks that a busy chat gives status 503 with retry after. */
     @Test
     void aBusyChatGivesStatus503WithRetryAfter() {
         ChatService chat = mock(ChatService.class);

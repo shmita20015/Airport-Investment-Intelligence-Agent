@@ -31,6 +31,7 @@ class ChatControllerTest {
         return HTTP.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
+    /** Checks that an empty message gives status 400. */
     @Test
     void anEmptyMessageGivesStatus400() throws Exception {
         HttpResponse<String> response = post("{\"message\":\"  \"}");
@@ -39,6 +40,7 @@ class ChatControllerTest {
         assertThat(JSON.readTree(response.body()).path("error").asString()).contains("empty");
     }
 
+    /** Checks that a too long message gives status 400. */
     @Test
     void aTooLongMessageGivesStatus400() throws Exception {
         HttpResponse<String> response = post("{\"message\":\"" + "a".repeat(ChatController.MAX_MESSAGE_LENGTH + 1) + "\"}");
@@ -46,6 +48,7 @@ class ChatControllerTest {
         assertThat(response.statusCode()).isEqualTo(400);
     }
 
+    /** Checks that a message gets a reply with a session id. */
     @Test
     void aMessageGetsAReplyWithASessionId() throws Exception {
         HttpResponse<String> response = post("{\"message\":\"Hello\"}");
@@ -56,6 +59,7 @@ class ChatControllerTest {
         assertThat(body.path("reply").asString()).contains("GEMINI_API_KEY");
     }
 
+    /** Checks that the chat page is served. */
     @Test
     void theChatPageIsServed() throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/")).GET().build();

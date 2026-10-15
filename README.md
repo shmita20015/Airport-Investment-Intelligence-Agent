@@ -2,12 +2,9 @@
 
 A chat agent for US airports. It helps to find where an investment in terminal capacity can be useful.
 
-- **A scoring engine in Java** calculates every number from public data (BTS, FAA, OurAirports). The scores are percentile based and deterministic.
-- **An LLM (Gemini, through Spring AI)** chooses the tools and explains the results. It does not calculate.
-- **A number check** compares the numbers of each answer with the tool results. If a number is not in the results, the agent asks again, and then shows the raw results.
-- **A REST API** gives the same numbers with no LLM.
+The LLM chooses tools and explains. Java code calculates every number. The same engine gives the same numbers in the chat, in the REST API (no LLM) and on the web page.
 
-The full design (scoring method, trade-offs, assumptions, limits, where AI is used) is in [`DESIGN.md`](DESIGN.md) (2 pages). The long version with all assumptions, limits and data checks is [`docs/DESIGN-full.md`](docs/DESIGN-full.md).
+The short design document is [`DESIGN.md`](DESIGN.md). It is the deliverable: scoring method, trade-offs, where AI is used. The appendix [`docs/DESIGN-full.md`](docs/DESIGN-full.md) has all assumptions, limits and data checks.
 
 ## Requirements
 - Java 21 or later
@@ -62,11 +59,7 @@ Follow-up questions work in the same chat. Example: "And at 1,500 miles?" after 
 Each answer has an `envelope` with the assumptions, the uncertainties, the confidence, the sources and the data date.
 
 ## Protection
-- Limits for each client address: 10 chat requests and 120 API requests a minute (HTTP 429). At most 4 chats run at the same time (HTTP 503). A chat request body is 4,096 bytes at most.
-- Chat sessions are limited in number and in idle time. The app accepts only session ids that it gave.
-- Against prompt injection: a hardened system prompt, cleaning of outside text, a number check against the tool results, and removal of links and images from answers.
-- All limits are in `application.yml` under `airport.limits`. Details: section 7 of [`DESIGN.md`](DESIGN.md).
-- Behind a reverse proxy, the proxy must pass the real client address, or all clients share one limit.
+The app limits requests for each client address, concurrent chats, request size and sessions. It cleans outside text and checks the numbers of each answer. All limits are in `application.yml` under `airport.limits`. Details: section 7 of [`DESIGN.md`](DESIGN.md) and section 22 of the appendix. Behind a reverse proxy, the proxy must pass the real client address.
 
 ## Data
 The data files are in `src/main/resources/data`. They are in Git, so the app runs without a download. To rebuild them (about 330 MB of downloads, some minutes):

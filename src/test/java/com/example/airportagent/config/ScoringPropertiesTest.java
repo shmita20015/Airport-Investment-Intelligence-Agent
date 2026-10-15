@@ -16,6 +16,7 @@ class ScoringPropertiesTest {
     @Autowired
     private ScoringProperties properties;
 
+    /** Checks that terminal profile has the design weights. */
     @Test
     void terminalProfileHasTheDesignWeights() {
         WeightProfile terminal = properties.profile("terminal");
@@ -26,12 +27,14 @@ class ScoringPropertiesTest {
         assertThat(terminal.weight(Component.SCALE)).isEqualTo(0.15);
     }
 
+    /** Checks that all profiles are valid. */
     @Test
     void allProfilesAreValid() {
         properties.profiles().keySet().forEach(name -> assertThat(properties.profile(name)).isNotNull());
         assertThat(properties.unmetDemandProfile().weight(Component.LOAD_FACTOR)).isEqualTo(0.40);
     }
 
+    /** Checks that unknown profile gives a clear error. */
     @Test
     void unknownProfileGivesAClearError() {
         assertThatThrownBy(() -> properties.profile("nope"))
@@ -42,6 +45,7 @@ class ScoringPropertiesTest {
     @Autowired
     private com.example.airportagent.data.AirportDataset data;
 
+    /** Checks that every state code of the regions exists in the data. */
     @Test
     void everyStateCodeOfTheRegionsExistsInTheData() {
         java.util.Set<String> states = data.airports().values().stream().map(a -> a.state()).collect(
@@ -50,6 +54,7 @@ class ScoringPropertiesTest {
         properties.regions().forEach((name, codes) -> assertThat(states).as(name).containsAll(codes));
     }
 
+    /** Checks that the broad regions are made of their divisions. */
     @Test
     void theBroadRegionsAreMadeOfTheirDivisions() {
         assertThat(properties.regions().get("NORTHEAST")).containsAll(properties.regions().get("NEW_ENGLAND"))
@@ -57,6 +62,7 @@ class ScoringPropertiesTest {
         assertThat(properties.regions().get("LOWER_48")).hasSize(49).doesNotContain("AK", "HI");
     }
 
+    /** Checks that size and limit settings are read. */
     @Test
     void sizeAndLimitSettingsAreRead() {
         assertThat(properties.minEnplanements()).isEqualTo(100_000);
