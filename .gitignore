@@ -46,6 +46,8 @@ application-local.properties
 
 ### Raw data downloads (large) ###
 /raw/
+/data-refreshed/
+/data-refreshed.tmp/
 ### Run logs ###
 *.log
 

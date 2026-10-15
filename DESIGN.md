@@ -33,6 +33,8 @@ The LLM chooses tools and explains results. **Java code calculates every number.
 
 **Data:** BTS T-100 and On-Time Performance, FAA enplanements, OurAirports (saved as CSV files by `scripts/prepare_data.py`), and the live FAA status (not a score input). The scores are calculated at run time.
 
+**Data refresh:** the data are bulk files of public sources, not API calls. The only call at run time is the FAA status. An optional monthly job (`airport.refresh`, off by default) runs the script again and restarts the app with the new files. It has a simple retry (3 tries) and a basic check (the files can be read and the data are not empty). If a check fails, the app keeps the old data.
+
 ## 3. Where AI is used (and where it is not)
 - **The LLM does:** read the question and the chat history, choose a tool and its inputs, and write the answer.
 - **The LLM does not:** calculate, rank, read data files or call public APIs.
@@ -68,7 +70,7 @@ Each result has an **envelope**: assumptions, uncertainties, out-of-scope items,
 
 ## 7. Extras (short)
 These are outside the core of the brief. Details are in the appendix.
-- **Page:** the left part is the scoring engine with no LLM (ranked table, sliders, score breakdown, live FAA status, sources). The right part is the chat with voice (browser speech functions).
+- **Page:** the left part is the scoring engine with no LLM (ranked table, sliders, score breakdown, sources). The right part is the chat with voice (browser speech functions).
 - **Regions:** 23 regions (Census regions and informal groups) are lists of state codes in `application.yml`.
 - **Protection:** per-client rate limits (Bucket4j), 4 concurrent chats, size limits, session limits, cleaning of outside text, removal of links and images from answers. All limits are in `airport.limits`. The tools only read data, so a successful attack can cause a wrong answer, but not a changed score or file. Section 22 of the appendix has the full table.
-- **Tests:** 195 tests, with no real LLM call. They cover scoring, real data checks, the REST API, the agent (with a scripted model) and architecture rules (ArchUnit).
+- **Tests:** 204 tests, with no real LLM call. They cover scoring, real data checks, the REST API, the agent (with a scripted model) and architecture rules (ArchUnit).

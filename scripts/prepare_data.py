@@ -18,6 +18,7 @@ import http.cookiejar
 import io
 import json
 import re
+import shutil
 import sys
 import urllib.error
 import urllib.parse
@@ -297,6 +298,7 @@ def main():
     parser.add_argument("--year", type=int, default=2025)
     parser.add_argument("--raw", default="raw")
     parser.add_argument("--out", default="src/main/resources/data")
+    parser.add_argument("--aliases", default="src/main/resources/data/aliases.csv")
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     raw, out = (root / args.raw), (root / args.out)
@@ -325,7 +327,7 @@ def main():
             merged["enplanements"].update(entry["enplanements"])
     log(f"  {len(faa)} FAA commercial service airports")
 
-    aliases = load_aliases(out / "aliases.csv")
+    aliases = load_aliases(root / args.aliases)
     index = AirportIndex(us_airports, aliases)
 
     log("3. Build the airport universe (FAA commercial service airports matched to OurAirports)")
@@ -426,6 +428,8 @@ def main():
     write_csv(out / "ontime.csv",
               ["iata", "flights", "delay15_rate", "cancel_rate", "avg_taxi_out_min"], ontime_rows)
 
+    if (root / args.aliases).resolve() != (out / "aliases.csv").resolve():
+        shutil.copyfile(root / args.aliases, out / "aliases.csv")
     manifest = {
         "generated": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
         "dataYear": year,

@@ -10,6 +10,8 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
@@ -38,6 +40,15 @@ final class Csv {
             return read(reader);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot read " + path, e);
+        }
+    }
+
+    /** Reads a CSV file from a folder of the file system. */
+    static List<Map<String, String>> readFile(Path file) {
+        try (Reader reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) {
+            return read(reader);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot read " + file, e);
         }
     }
 

@@ -85,6 +85,18 @@ airport:
     # The FAA answer is kept for this time. Many questions in this time make one call to the FAA.
     cache-seconds: 30
 
+  refresh:
+    # A job that runs scripts/prepare_data.py on a schedule and restarts the app with the new files.
+    # It needs Python and about 330 MB of downloads. It is off by default.
+    enabled: false
+    cron: "0 0 3 1 * *"        # the first day of each month at 03:00
+    python-command: python
+    script: scripts/prepare_data.py
+    data-dir: data-refreshed
+    year: 0                    # 0 means the default year of the script
+    retries: 3
+    retry-delay-seconds: 60
+
   limits:
     # A chat request calls the LLM, so its limit is low. The limits are for one client address.
     chat-requests-per-minute: 10

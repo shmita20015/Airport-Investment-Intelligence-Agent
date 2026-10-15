@@ -24,7 +24,7 @@ mvn spring-boot:run
 
 Open <http://localhost:8080>. The page has two parts:
 
-- **Scoring engine (left, no LLM):** a ranked table with score and confidence, sliders for the weights, the breakdown of the score of the selected airport, the live FAA status of that airport, and the sources, assumptions and uncertainty. It calls the REST API, so it works without a Gemini key.
+- **Scoring engine (left, no LLM):** a ranked table with score and confidence, sliders for the weights, the breakdown of the score of the selected airport, and the sources, assumptions and uncertainty. It calls the REST API, so it works without a Gemini key.
 - **Chat (right):** example questions, a microphone button and a switch to read the answers aloud. Voice uses the speech functions of the browser. Chrome and Edge support them.
 
 Move a slider to ask a what-if question: the table is calculated again with your weights. In the chat, ask for example "What if I ignore scale?" and the agent calls the same engine with custom weights.
@@ -54,7 +54,7 @@ Follow-up questions work in the same chat. Example: "And at 1,500 miles?" after 
 | `GET /api/airport/SFO?profile=general` | KPIs, components and score |
 | `GET /api/airport/ANC/long-haul?minMiles=2500` | Long-haul share |
 | `GET /api/airport/SFO/unmet-demand` | Unmet demand index (a proxy) |
-| `GET /api/airport/LAX/live-status` | Current FAA status |
+| `GET /api/airport/LAX/live-status` | Current FAA status (the chat tool `getLiveStatus` uses it) |
 
 Each answer has an `envelope` with the assumptions, the uncertainties, the confidence, the sources and the data date.
 
@@ -69,6 +69,8 @@ python -I scripts/prepare_data.py --year 2025
 ```
 
 The script saves facts only (sums, counts, rates). The scores are calculated at run time. The settings of the scoring (weights, size limit, long-haul limit) are in `src/main/resources/application.yml`.
+
+**Automatic refresh (off by default):** set `airport.refresh.enabled=true` (or the variable `AIRPORT_REFRESH_ENABLED=true`). A monthly job (`airport.refresh.cron`) then runs the script, saves the new files in the folder `data-refreshed` and restarts the app, so that the app reads them. The server needs Python. If the script fails, the job tries 3 times (60 seconds apart) and then keeps the old data. Before the job replaces the files, it makes a basic check: the files can be read, and the data have at least 100 airports, traffic, enplanements and a data year. If the check fails, the app keeps the old data. A restart takes about 1 second and clears the chat sessions.
 
 ## Test
 
