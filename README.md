@@ -59,7 +59,7 @@ Follow-up questions work in the same chat. Example: "And at 1,500 miles?" after 
 Each answer has an `envelope` with the assumptions, the uncertainties, the confidence, the sources and the data date.
 
 ## Protection
-The app limits requests for each client address, concurrent chats, request size and sessions. It cleans outside text and checks the numbers of each answer. All limits are in `application.yml` under `airport.limits`. Details: section 7 of [`DESIGN.md`](DESIGN.md) and section 22 of the appendix. Behind a reverse proxy, the proxy must pass the real client address.
+The app limits requests for each client address, concurrent chats, request size and sessions. It cleans outside text and checks the numbers of each answer. All limits are in `application.yml` under `airport.limits`. Details: section 6 of [`DESIGN.md`](DESIGN.md) and section 22 of the appendix. Behind a reverse proxy, the proxy must pass the real client address.
 
 ## Data
 The data files are in `src/main/resources/data`. They are in Git, so the app runs without a download. To rebuild them (about 330 MB of downloads, some minutes):

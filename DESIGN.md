@@ -42,33 +42,31 @@ The LLM chooses tools and explains results. **Java code calculates every number.
 - **Number check:** `NumberCheck` looks for numbers in the answer that no tool result has. If it finds one, the agent asks again one time. Then it shows the raw tool results.
 - **Follow-ups:** the chat memory keeps 20 messages per session.
 
-## 4. Key trade-offs and known weak points
-| Decision | Why | Cost or weak point |
+## 4. Key design trade-offs
+| Decision | Why | Cost |
 |---|---|---|
-| The score is a screening index, not a profit model | Public data have no cost, revenue or forecast. | It cannot say where a renovation earns the most. It finds where pressure is high. |
-| Unmet demand is a proxy (load factor, growth, congestion) | Public data cannot measure it. | The "why" for SFO comes from one expert note, not from data. |
-| Percentiles, not raw values | Different units can be mixed. The result is easy to explain. | The size of a gap is lost. Scores have no meaning outside the 233 airports. |
-| Fixed heuristic weights | Simple, open and easy to change. | No data or back-test supports them. Scale, load factor and congestion are correlated, so large hubs get credit more than one time. |
-| Drop missing KPIs and renormalize | An unknown value is not a zero. | An airport with few KPIs can rank high on the rest. The confidence label is the only protection. |
-| The LLM never calculates | Numbers are repeatable and testable. | The agent cannot do new math. The number check rejects it. |
-| `NumberCheck` | It catches invented numbers. | **It is a safety net, not proof.** It checks that a number is in some tool result. It does not check that the number belongs to the right airport or KPI. It does not check words. |
-| One LLM provider (Gemini through Spring AI) | Standard tool calling. The model is a setting. | If Gemini is down, the chat gives raw tool results. The page and the REST API still work. |
-| State in memory | Simple to run. | One instance only. Sessions and limits are lost at a restart. |
+| **Saved data files, not live API calls.** A script downloads the public files one time. The app reads the CSV files at start-up. | The scores are repeatable. The app starts fast and needs no network. A reviewer can run it with no setup. | The data are as old as the last script run. An optional monthly job (`airport.refresh`) runs the script again. |
+| **Save facts, calculate scores at run time.** The files hold sums, counts and rates. They do not hold scores. | A change of a weight or a size limit needs no new data run. The what-if sliders work with the same data. | The app calculates all scores at start-up. The whole app starts in about 2 seconds. |
+| **Data in memory, no database.** | About 500 rows. A database adds no value. | No query language. This design does not fit a large data set. |
+| **One engine for the chat, the REST API and the page.** | The three give the same numbers. A reviewer can check each chat number in the table. | One more layer. `AirportQueryService` is a large class. |
+| **Chat sessions and memory in a bounded cache.** At most 200 sessions. An idle session is deleted after 60 minutes, with its history. | The memory use has a limit. | Sessions are lost at a restart. The app runs as one instance only. |
+| **Rate limits in memory.** A token bucket for each client address. | Simple, with no extra service. | The buckets are not shared between instances. Behind a proxy, the proxy must pass the real address. |
+| **Refresh by restart.** The job replaces the data folder, checks it, and restarts the app. | The data set stays immutable. There is no hot swap and no locking. | About 1 second without service. The chat sessions are cleared. |
+| **The LLM never calculates.** It chooses tools and explains. | The numbers are repeatable and testable. | The agent cannot do new math. `NumberCheck` rejects it. |
+| **`NumberCheck` as a safety net.** | It catches invented numbers. | It checks that a number is in some tool result. It does not check that the number belongs to the right airport. It does not check words. |
 
 ## 5. Assumptions, uncertainty and scope
 Each result has an **envelope**: assumptions, uncertainties, out-of-scope items, confidence, sources and the data date. The agent must state the main ones.
 - T-100 has US airlines only. On-Time has large reporting airlines only. Small airports can have no delay data. Their confidence is lower.
 - The long-haul share depends on a definition (2,500 miles). There is no standard.
 - The score favors large airports (size filter and scale component).
+- The score is a screening index, not a profit model. Public data have no cost, revenue or forecast. It shows where pressure is high.
+- Unmet demand is a proxy (load factor, growth, congestion). The "why" for SFO comes from one expert note, not from data.
+- Percentiles lose the size of a gap. The weights are heuristics, and scale, load factor and congestion are correlated.
+- A missing KPI is dropped and the weights are renormalized. An airport with few KPIs can rank high on the rest. The confidence label shows this.
 - Foreign airports are out of scope. The tool answers OUT_OF_SCOPE with the reason.
 
-## 6. Not verified
-- Voice and the sliders in a real browser. Only headless screenshots were checked.
-- The larger Gemini models with the tools (they were overloaded during the check).
-- The app is not deployed.
-- The agent has no evaluation set. I ran the four questions and one follow-up with `gemini-3.1-flash-lite` on 2026-10-14. Each answer used the right tools and passed the number check. The check found one real bug in my code (it read "100,000" as two numbers). It is fixed.
-
-## 7. Extras (short)
+## 6. Extras (short)
 These are outside the core of the brief. Details are in the appendix.
 - **Page:** the left part is the scoring engine with no LLM (ranked table, sliders, score breakdown, sources). The right part is the chat with voice (browser speech functions).
 - **Regions:** 23 regions (Census regions and informal groups) are lists of state codes in `application.yml`.

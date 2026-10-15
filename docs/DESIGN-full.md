@@ -644,7 +644,7 @@ Do not put the API key in the repository.
 | Architecture | `scoring` and `domain` do not depend on `agent`, `api` or Spring AI. | Makes the claim testable. |
 | Number check | An answer with a number that is not in the results is rejected. | Proves the check. |
 
-The four example questions also ran by hand with a real LLM (see `DESIGN.md`, section 6).
+The four example questions also ran by hand with a real LLM.
 
 ---
 
@@ -837,7 +837,7 @@ Checks that are still open: browser support for voice, and the real behavior of 
 ## 22. Protection against a heavy load and prompt injection
 
 ### 22.1 Threats and the protection
-See section 7 of `DESIGN.md` for the short summary. This section has the details and the reasons.
+See section 6 of `DESIGN.md` for the short summary. This section has the details and the reasons.
 
 **Heavy load**
 - The chat is the expensive part. Each question makes 2 to 6 LLM requests, and the free tier of Gemini has a small daily limit. A client that sends many questions can use the whole limit for all users.
