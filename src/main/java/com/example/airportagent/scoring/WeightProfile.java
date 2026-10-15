@@ -2,6 +2,7 @@ package com.example.airportagent.scoring;
 
 import com.example.airportagent.domain.Component;
 
+import java.util.EnumMap;
 import java.util.Map;
 
 /**
@@ -30,5 +31,46 @@ public record WeightProfile(String name, Map<Component, Double> weights) {
 
     public double weight(Component component) {
         return weights.getOrDefault(component, 0.0);
+    }
+
+    /**
+     * A new profile for a what-if question. The given weights are fixed. The other components share the rest
+     * (1.0 minus the fixed weights) in the ratio of this profile. If the fixed weights are 1.0 or more, or if no
+     * other component has a weight, the fixed weights are scaled to add up to 1.0 and the others get 0.
+     *
+     * @throws IllegalArgumentException if a weight is negative or not a number, or if all weights are zero
+     */
+    public WeightProfile withOverrides(String newName, Map<Component, Double> fixed) {
+        double fixedSum = 0;
+        for (Map.Entry<Component, Double> entry : fixed.entrySet()) {
+            double value = entry.getValue();
+            if (Double.isNaN(value) || Double.isInfinite(value) || value < 0) {
+                throw new IllegalArgumentException("The weight of " + entry.getKey() + " must be zero or more.");
+            }
+            fixedSum += value;
+        }
+        double othersBase = 0;
+        for (Component component : Component.values()) {
+            if (!fixed.containsKey(component)) {
+                othersBase += weight(component);
+            }
+        }
+        Map<Component, Double> result = new EnumMap<>(Component.class);
+        if (fixedSum >= 1.0 - TOLERANCE || othersBase <= 0) {
+            if (fixedSum <= 0) {
+                throw new IllegalArgumentException("At least one weight must be more than zero.");
+            }
+            double total = fixedSum;
+            fixed.forEach((component, value) -> result.put(component, value / total));
+        } else {
+            double rest = 1.0 - fixedSum;
+            fixed.forEach(result::put);
+            for (Component component : Component.values()) {
+                if (!fixed.containsKey(component) && weight(component) > 0) {
+                    result.put(component, rest * weight(component) / othersBase);
+                }
+            }
+        }
+        return new WeightProfile(newName, result);
     }
 }

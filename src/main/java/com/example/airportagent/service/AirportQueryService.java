@@ -23,6 +23,7 @@ import com.example.airportagent.service.Views.AirportRef;
 import com.example.airportagent.service.Views.ComparisonView;
 import com.example.airportagent.service.Views.KpiView;
 import com.example.airportagent.service.Views.LiveStatusView;
+import com.example.airportagent.service.Views.Placement;
 import com.example.airportagent.service.Views.LongHaulView;
 import com.example.airportagent.service.Views.MethodologyView;
 import com.example.airportagent.service.Views.RankedItem;
@@ -101,10 +102,27 @@ public class AirportQueryService {
      * @param topN        the number of airports to return (1 to 50)
      */
     public QueryResult<RankingView> rank(String region, String profileName, Integer topN) {
-        Optional<WeightProfile> profile = profileFor(profileName);
-        if (profile.isEmpty()) {
+        return rank(region, profileName, topN, null);
+    }
+
+    /**
+     * Rank with custom weights (a what-if question).
+     *
+     * @param weights optional. Fixed weights for some components, for example "scale:0" or
+     *                "congestion:0.5, growth:0.3". The other components share the rest in the ratio of the profile.
+     */
+    public QueryResult<RankingView> rank(String region, String profileName, Integer topN, String weights) {
+        Optional<WeightProfile> baseProfile = profileFor(profileName);
+        if (baseProfile.isEmpty()) {
             return unknownProfile(profileName);
         }
+        Optional<WeightProfile> profile;
+        try {
+            profile = Optional.of(withCustomWeights(baseProfile.get(), weights));
+        } catch (IllegalArgumentException e) {
+            return new QueryResult.NotAvailable<>(e.getMessage(), componentNames());
+        }
+        boolean custom = weights != null && !weights.isBlank();
         RegionFilter regionFilter;
         try {
             regionFilter = parseRegion(region);
@@ -127,19 +145,16 @@ public class AirportQueryService {
         }
         String regionText = regionFilter.label();
         RankingView view = new RankingView(profile.get().name(), regionText, rankedSet.size(),
-                (int) rankedSet.minEnplanements(), items);
+                (int) rankedSet.minEnplanements(), weightsOf(profile.get()), items);
 
         List<Score> shown = items.stream().map(RankedItem::score).toList();
         Envelope envelope = envelopes.build(profile.get().name(),
                 Map.of("region", regionText, "topN", String.valueOf(limit),
                         "minEnplanements", String.valueOf(rankedSet.minEnplanements()),
-                        "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles())),
+                        "longHaulMiles", String.valueOf(properties.defaultLongHaulMiles()),
+                        "weights", custom ? weights.trim() : "profile " + baseProfile.get().name()),
                 lowestConfidence(shown),
-                List.of(describe(profile.get()),
-                        "The rank among the airports of the region is in the field rank. The rank among all ranked "
-                                + "airports is in the field nationalRank. The percentiles are always national.",
-                        "The score is an opportunity index. It shows traffic pressure and growth. It is a proxy "
-                                + "for the need of more capacity."),
+                rankingAssumptions(profile.get(), baseProfile.get(), custom),
                 coverageNotes(shown, true),
                 List.of(EnvelopeFactory.NO_PROFIT, "Airports below the size limit are not ranked."));
         if (items.isEmpty()) {
@@ -189,6 +204,14 @@ public class AirportQueryService {
      *              compares the score of that profile.
      */
     public QueryResult<ComparisonView> compare(List<String> codes, String focus) {
+        return compare(codes, focus, null);
+    }
+
+    /**
+     * @param weights optional custom weights for a profile focus (see {@link #rank(String, String, Integer, String)}).
+     *                They do not apply to the focus congestion.
+     */
+    public QueryResult<ComparisonView> compare(List<String> codes, String focus, String weights) {
         if (codes == null || codes.size() < 2) {
             return new QueryResult.NotAvailable<>("A comparison needs at least two airport codes.", List.of());
         }
@@ -196,11 +219,24 @@ public class AirportQueryService {
             return new QueryResult.NotAvailable<>("A comparison can have at most " + MAX_COMPARE + " airports.", List.of());
         }
         String focusName = focus == null || focus.isBlank() ? "congestion" : focus.trim().toLowerCase(Locale.ROOT);
-        Optional<WeightProfile> profile = "congestion".equals(focusName)
+        Optional<WeightProfile> baseProfile = "congestion".equals(focusName)
                 ? Optional.of(new WeightProfile("congestion", Map.of(Component.CONGESTION, 1.0)))
                 : profileFor(focusName);
-        if (profile.isEmpty()) {
+        if (baseProfile.isEmpty()) {
             return unknownProfile(focusName);
+        }
+        Optional<WeightProfile> profile;
+        if (weights == null || weights.isBlank()) {
+            profile = baseProfile;
+        } else if ("congestion".equals(focusName)) {
+            return new QueryResult.NotAvailable<>("Weights do not apply to the focus congestion. "
+                    + "Use the focus terminal or general with weights.", List.of("terminal", "general"));
+        } else {
+            try {
+                profile = Optional.of(withCustomWeights(baseProfile.get(), weights));
+            } catch (IllegalArgumentException e) {
+                return new QueryResult.NotAvailable<>(e.getMessage(), componentNames());
+            }
         }
 
         List<Airport> found = new ArrayList<>();
@@ -226,7 +262,9 @@ public class AirportQueryService {
                 warnings.add(view.airport().iata() + " is below the size limit. Its percentiles use the ranked airports as peers.");
             }
         }
-        ComparisonView view = new ComparisonView(focusName, profile.get().name(), views, warnings);
+        List<Placement> order = ComparisonBuilder.focusOrder(views, "congestion".equals(focusName));
+        ComparisonView view = new ComparisonView(focusName, profile.get().name(), views, order,
+                ComparisonBuilder.focusGap(order), ComparisonBuilder.kpiComparisons(views), warnings);
 
         List<Score> scores = views.stream().map(AirportProfileView::score).filter(s -> s != null).toList();
         Envelope envelope = envelopes.build(profile.get().name(),
@@ -237,7 +275,9 @@ public class AirportQueryService {
                                 ? "The congestion component is the mean of the percentiles of the delay rate, the taxi-out "
                                 + "time, the cancellation rate and the operations per runway. Missing KPIs are removed."
                                 : describe(profile.get()),
-                        "The operations per runway KPI assumes that arrivals equal departures and that all runways are independent."),
+                        "The operations per runway KPI assumes that arrivals equal departures and that all runways are independent.",
+                        "Code decides which airport is higher (focusOrder and kpiComparisons). A higher percentile means more "
+                                + "pressure for every KPI, for example more delay, a longer taxi-out time or more operations per runway."),
                 coverageNotes(scores, false),
                 List.of(EnvelopeFactory.NO_PROFIT));
         if (!unknown.isEmpty()) {
@@ -369,7 +409,7 @@ public class AirportQueryService {
         properties.profiles().keySet().stream().sorted().forEach(name -> profiles.put(name, weightsOf(properties.profile(name))));
         MethodologyView view = new MethodologyView(profiles, weightsOf(properties.unmetDemandProfile()),
                 data.info().dataYear(), rankedSet.size(), rankedSet.minEnplanements(), properties.defaultLongHaulMiles(),
-                AirportResolver.SCOPE_RULE,
+                properties.regions().keySet().stream().sorted().toList(), AirportResolver.SCOPE_RULE,
                 List.of("Each KPI becomes a percentile among the ranked airports. A component is the mean of its KPI percentiles.",
                         "The score is the weighted mean of the available components. The weights of missing components "
                                 + "are shared among the others.",
@@ -449,6 +489,74 @@ public class AirportQueryService {
     private Double percentile(Kpi kpi, double value) {
         OptionalDouble percentile = snapshot.peers().rank(kpi, value);
         return percentile.isPresent() ? percentile.getAsDouble() : null;
+    }
+
+    private static List<String> componentNames() {
+        return java.util.Arrays.stream(Component.values()).map(c -> c.name().toLowerCase(Locale.ROOT)).toList();
+    }
+
+    private static List<String> rankingAssumptions(WeightProfile profile, WeightProfile base, boolean custom) {
+        List<String> assumptions = new ArrayList<>();
+        assumptions.add(describe(profile));
+        if (custom) {
+            assumptions.add("The weights are custom weights from the user. The components that the user did not name "
+                    + "share the rest in the ratio of the profile " + base.name() + ".");
+        }
+        assumptions.add("The rank among the airports of the region is in the field rank. The rank among all ranked "
+                + "airports is in the field nationalRank. The percentiles are always national.");
+        assumptions.add("The score is an opportunity index. It shows traffic pressure and growth. It is a proxy "
+                + "for the need of more capacity.");
+        return assumptions;
+    }
+
+    /**
+     * Applies the custom weights of the user to a profile. A weight is a fraction (0.25) or a percentage (25 or 25%).
+     * Format: component:weight, separated by commas, for example "scale:0, congestion:0.5".
+     *
+     * @throws IllegalArgumentException with a clear message if the text is not valid
+     */
+    private static WeightProfile withCustomWeights(WeightProfile base, String text) {
+        if (text == null || text.isBlank()) {
+            return base;
+        }
+        Map<Component, Double> fixed = new java.util.EnumMap<>(Component.class);
+        for (String part : text.split("[,;]")) {
+            if (part.isBlank()) {
+                continue;
+            }
+            String[] pair = part.trim().split("[:=]");
+            if (pair.length != 2) {
+                throw new IllegalArgumentException("Cannot read the weight \"" + part.trim()
+                        + "\". Use the format component:weight, for example scale:0.");
+            }
+            Component component;
+            try {
+                component = Component.valueOf(pair[0].trim().toUpperCase(Locale.ROOT).replace(' ', '_').replace('-', '_'));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Unknown component \"" + pair[0].trim() + "\".");
+            }
+            fixed.put(component, parseWeight(pair[1].trim()));
+        }
+        if (fixed.isEmpty()) {
+            return base;
+        }
+        return base.withOverrides("custom", fixed);
+    }
+
+    private static double parseWeight(String text) {
+        boolean percent = text.endsWith("%");
+        try {
+            double value = Double.parseDouble(percent ? text.substring(0, text.length() - 1).trim() : text);
+            if (percent || value > 1.0) {
+                value = value / 100.0;
+            }
+            if (value > 1.0) {
+                throw new IllegalArgumentException("A weight cannot be more than 100%.");
+            }
+            return value;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Cannot read the number \"" + text + "\" as a weight.");
+        }
     }
 
     private Optional<WeightProfile> profileFor(String name) {

@@ -30,6 +30,10 @@ public class ChatController {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "The message is too long. The limit is " + MAX_MESSAGE_LENGTH + " characters."));
         }
-        return ResponseEntity.ok(chat.chat(request.sessionId(), request.message().trim()));
+        try {
+            return ResponseEntity.ok(chat.chat(request.sessionId(), request.message().trim()));
+        } catch (ChatBusyException e) {
+            return ResponseEntity.status(503).header("Retry-After", "5").body(Map.of("error", e.getMessage()));
+        }
     }
 }

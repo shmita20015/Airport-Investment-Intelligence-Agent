@@ -64,5 +64,8 @@ class ChatControllerTest {
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("Airport Investment Intelligence Agent").contains("SpeechRecognition");
+        // The scoring engine panel: ranked table, weights, live status and sources.
+        assertThat(response.body()).contains("id=\"rank\"").contains("id=\"weights\"").contains("id=\"live\"")
+                .contains("id=\"sources\"").contains("/api/rank").contains("/api/methodology");
     }
 }

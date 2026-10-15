@@ -68,4 +68,32 @@ class NumberCheckTest {
     void aNumberInsideAWordOrCodeIsNotSplit() {
         assertThat(unsupported("The airport is B6 with code A320.")).isEmpty();
     }
+
+    @Test
+    void aHyphenInANameIsNotAMinusSign() {
+        List<String> sources = List.of("{\"sources\":[\"BTS T-100 Segment (US carriers), 2025\"],\"growth\":-0.056}");
+
+        assertThat(NumberCheck.unsupported("The data is from the BTS T-100 table for 2025.", sources)).isEmpty();
+        assertThat(NumberCheck.unsupported("The growth is -5.6% a year.", sources)).isEmpty();
+    }
+
+    @Test
+    void aCutLastDecimalIsAccepted() {
+        List<String> sources = List.of("{\"value\":48.6454,\"score\":66.98}");
+
+        assertThat(NumberCheck.unsupported("The value is 48.64.", sources)).isEmpty();
+        assertThat(NumberCheck.unsupported("The value is 48.65.", sources)).isEmpty();
+        assertThat(NumberCheck.unsupported("The value is 48.6.", sources)).isEmpty();
+        assertThat(NumberCheck.unsupported("The value is 48.7.", sources)).containsExactly("48.7");
+        assertThat(NumberCheck.unsupported("The value is 48.66.", sources)).containsExactly("48.66");
+        assertThat(NumberCheck.unsupported("The value is 48.63.", sources)).containsExactly("48.63");
+    }
+
+    @Test
+    void aWholeNumberMustBeRounded() {
+        List<String> sources = List.of("{\"score\":66.98}");
+
+        assertThat(NumberCheck.unsupported("The score is 67.", sources)).isEmpty();
+        assertThat(NumberCheck.unsupported("The score is 66.", sources)).containsExactly("66");
+    }
 }

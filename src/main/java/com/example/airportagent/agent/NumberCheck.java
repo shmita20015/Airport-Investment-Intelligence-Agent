@@ -16,7 +16,7 @@ public final class NumberCheck {
 
     private static final Pattern IN_ANSWER =
             Pattern.compile("(?<![\\w.])(\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)(\\s*(?:million|billion|thousand|[MBK])\\b)?");
-    private static final Pattern IN_SOURCE = Pattern.compile("-?\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?");
+    private static final Pattern IN_SOURCE = Pattern.compile("(?<!\\w)-?(?:\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)");
     private static final double SMALLEST_CHECKED = 10;
 
     private NumberCheck() {
@@ -24,7 +24,7 @@ public final class NumberCheck {
 
     /**
      * @param answer  the text of the answer
-     * @param sources texts with allowed numbers: the tool results (JSON) and the question of the user
+     * @param sources texts with allowed numbers: the tool results (JSON). The question of the user is not a source.
      * @return the numbers of the answer that no source supports, in the order of the answer
      */
     public static List<String> unsupported(String answer, Collection<String> sources) {
@@ -32,7 +32,8 @@ public final class NumberCheck {
         for (String source : sources) {
             Matcher matcher = IN_SOURCE.matcher(source);
             while (matcher.find()) {
-                allowed.add(Double.parseDouble(matcher.group().replace(",", "")));
+                // The sign is not compared. An answer can say "declined 5.6%" for a value of -0.056.
+                allowed.add(Math.abs(Double.parseDouble(matcher.group().replace(",", ""))));
             }
         }
         List<String> result = new ArrayList<>();
@@ -54,11 +55,17 @@ public final class NumberCheck {
 
     private static boolean supported(double shown, double scale, int decimals, Set<Double> allowed) {
         double actual = shown * scale;
-        double halfStep = 0.5 * scale * Math.pow(10, -decimals);
+        double step = scale * Math.pow(10, -decimals);
+        double tolerance = 1e-9 * Math.max(1, Math.abs(actual));
         for (double source : allowed) {
             // A share can be shown as a percentage. A KPI in thousands can be shown in millions.
             for (double factor : new double[] {1, 100}) {
-                if (Math.abs(source * factor - actual) <= halfStep + 1e-9 * Math.max(1, Math.abs(actual))) {
+                double value = source * factor;
+                boolean rounded = Math.abs(value - actual) <= 0.5 * step + tolerance;
+                // An LLM often cuts the last digit and does not round it (48.645 shown as 48.64).
+                // A whole number must be rounded. A cut whole number is too far from the value.
+                boolean cut = decimals > 0 && value >= actual - tolerance && value < actual + step;
+                if (rounded || cut) {
                     return true;
                 }
             }

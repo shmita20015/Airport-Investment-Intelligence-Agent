@@ -1,6 +1,7 @@
 package com.example.airportagent.agent;
 
 import com.example.airportagent.service.AirportQueryService;
+import com.example.airportagent.service.QueryResult;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -19,7 +20,7 @@ class StartsWithoutApiKeyTest {
 
     @Test
     void theEngineWorksWithoutAKey() {
-        assertThat(service.longHaul("ANC", 2500)).isNotNull();
+        assertThat(service.longHaul("ANC", 2500)).isInstanceOf(QueryResult.Ok.class);
     }
 
     @Test

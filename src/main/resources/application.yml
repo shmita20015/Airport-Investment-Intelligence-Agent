@@ -71,3 +71,15 @@ airport:
     # The live FAA call. It shows the current delay status. It is not a score input.
     faa-status-url: https://nasstatus.faa.gov/api/airport-status-information
     timeout-ms: 3000
+    # The FAA answer is kept for this time. Many questions in this time make one call to the FAA.
+    cache-seconds: 30
+
+  limits:
+    # A chat request calls the LLM, so its limit is low. The limits are for one client address.
+    chat-requests-per-minute: 10
+    api-requests-per-minute: 120
+    # Chat requests that run at the same time in the whole app. More requests get HTTP 503.
+    max-concurrent-chats: 4
+    max-request-bytes: 4096
+    max-sessions: 200
+    session-idle-minutes: 60

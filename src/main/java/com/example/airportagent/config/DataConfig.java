@@ -27,7 +27,8 @@ public class DataConfig {
 
     @Bean
     public FaaStatusClient faaStatusClient(LiveProperties properties) {
-        return new HttpFaaStatusClient(properties.faaStatusUrl(), Duration.ofMillis(properties.timeoutMs()));
+        return new HttpFaaStatusClient(properties.faaStatusUrl(), Duration.ofMillis(properties.timeoutMs()),
+                Duration.ofSeconds(properties.cacheSeconds()));
     }
 
     /** The clock of the app. A test can replace it. */

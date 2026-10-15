@@ -23,6 +23,8 @@ import java.util.function.Predicate;
 public class AirportResolver {
 
     private static final int MAX_ALTERNATIVES = 8;
+    /** A longer text is not an airport name. The limit protects the search against very long input. */
+    static final int MAX_QUERY_LENGTH = 100;
     public static final String SCOPE_RULE = "The app knows the US commercial service airports of the FAA list "
             + "(the 50 states, DC and the US territories). Foreign airports are not in the data.";
 
@@ -39,6 +41,9 @@ public class AirportResolver {
             return new QueryResult.OutOfScope<>("The airport name is empty.", SCOPE_RULE);
         }
         String query = text.trim();
+        if (query.length() > MAX_QUERY_LENGTH) {
+            return new QueryResult.OutOfScope<>("The airport name is too long.", SCOPE_RULE);
+        }
         String upper = query.toUpperCase(Locale.ROOT);
         String lower = query.toLowerCase(Locale.ROOT);
 

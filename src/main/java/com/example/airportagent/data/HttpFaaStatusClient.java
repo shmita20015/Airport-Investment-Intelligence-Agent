@@ -20,6 +20,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
 /**
@@ -32,29 +33,65 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
     private static final Pattern RESTRICTION = Pattern.compile(
             "\\b(EXC|EXCEPT|TO NON|NON SKED|GA|TRANSIENT|PPR|HEL|RWY|TWY|TAXIWAY|RUNWAY)\\b");
 
-    private final HttpClient http;
-    private final URI url;
-    private final Duration timeout;
+    /** A call to the FAA service. A test can replace it. */
+    @FunctionalInterface
+    interface Fetcher {
+        String fetch() throws IOException;
+    }
 
-    public HttpFaaStatusClient(String url, Duration timeout) {
-        this.url = URI.create(url);
-        this.timeout = timeout;
-        this.http = HttpClient.newBuilder().connectTimeout(timeout).build();
+    private record Cached(String body, long takenAtNanos) {}
+
+    private final Fetcher fetcher;
+    private final long ttlNanos;
+    private final LongSupplier nanoClock;
+    private volatile Cached cached;
+
+    /**
+     * @param cacheTtl the answer of the FAA service is kept for this time. A heavy load of questions
+     *                 then makes one call to the FAA, and not one call for each question.
+     */
+    public HttpFaaStatusClient(String url, Duration timeout, Duration cacheTtl) {
+        this(httpFetcher(URI.create(url), timeout), cacheTtl, System::nanoTime);
+    }
+
+    HttpFaaStatusClient(Fetcher fetcher, Duration cacheTtl, LongSupplier nanoClock) {
+        this.fetcher = fetcher;
+        this.ttlNanos = cacheTtl.toNanos();
+        this.nanoClock = nanoClock;
+    }
+
+    private static Fetcher httpFetcher(URI url, Duration timeout) {
+        HttpClient http = HttpClient.newBuilder().connectTimeout(timeout).build();
+        return () -> {
+            HttpRequest request = HttpRequest.newBuilder(url).timeout(timeout).GET().build();
+            try {
+                HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() != 200) {
+                    throw new IOException("The FAA status service answered with HTTP " + response.statusCode());
+                }
+                return response.body();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("The call to the FAA status service was interrupted", e);
+            }
+        };
     }
 
     @Override
     public LiveStatus statusOf(String airportCode) throws IOException {
-        HttpRequest request = HttpRequest.newBuilder(url).timeout(timeout).GET().build();
-        try {
-            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() != 200) {
-                throw new IOException("The FAA status service answered with HTTP " + response.statusCode());
-            }
-            return parse(response.body(), airportCode);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("The call to the FAA status service was interrupted", e);
+        return parse(body(), airportCode);
+    }
+
+    /** The answer of the FAA service. A failed call is not kept, so the next question tries again. */
+    private String body() throws IOException {
+        Cached current = cached;
+        long now = nanoClock.getAsLong();
+        if (current != null && now - current.takenAtNanos() < ttlNanos) {
+            return current.body();
         }
+        String body = fetcher.fetch();
+        cached = new Cached(body, now);
+        return body;
     }
 
     /** Read the FAA XML. This method has no network call, so a test can use it with a fixed text. */
@@ -76,7 +113,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
                     if (!airportCode.equalsIgnoreCase(text(entry, "ARPT"))) {
                         continue;
                     }
-                    String reason = text(entry, "Reason");
+                    String reason = UntrustedText.clean(text(entry, "Reason"));
                     EventType type = typeOf(name);
                     if (type == EventType.CLOSURE && RESTRICTION.matcher(reason.toUpperCase()).find()) {
                         restrictions++;
@@ -85,7 +122,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
                     events.add(new Event(type, reason, details(entry)));
                 }
             }
-            return new LiveStatus(airportCode.toUpperCase(), updateTime, events, restrictions);
+            return new LiveStatus(airportCode.toUpperCase(), UntrustedText.clean(updateTime), events, restrictions);
         } catch (Exception e) {
             throw new IOException("Cannot read the FAA status data", e);
         }
@@ -131,7 +168,7 @@ public final class HttpFaaStatusClient implements FaaStatusClient {
                 details.append(element.getTagName()).append(": ").append(element.getTextContent().trim());
             }
         }
-        return details.toString();
+        return UntrustedText.clean(details.toString());
     }
 
     private static String text(Element parent, String tag) {

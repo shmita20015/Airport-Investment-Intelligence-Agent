@@ -44,11 +44,29 @@ public final class Views {
 
     public record RankedItem(int rank, int nationalRank, AirportRef airport, Score score) {}
 
+    /** @param weights the weights that the ranking used (after custom weights, if any), by component name */
     public record RankingView(String profile, String region, int rankedSetSize, int minEnplanements,
-                              List<RankedItem> items) {}
+                              Map<String, Double> weights, List<RankedItem> items) {}
 
+    /**
+     * @param airports        each airport with its KPIs and score, in the order of the request
+     * @param focusOrder      the airports sorted by the focus value, from high to low. Position 1 is the highest.
+     * @param focusGapPoints  the distance between the first and the last airport of focusOrder, or null
+     * @param kpiComparisons  for each KPI, which airport is higher and by how many percentile points
+     */
     public record ComparisonView(String focus, String profile, List<AirportProfileView> airports,
-                                 List<String> warnings) {}
+                                 List<Placement> focusOrder, Double focusGapPoints,
+                                 List<KpiComparison> kpiComparisons, List<String> warnings) {}
+
+    /** The place of an airport in an order, with its value. */
+    public record Placement(int position, String iata, double value) {}
+
+    /**
+     * @param highest the airport with the highest percentile, or null in a tie
+     * @param lowest  the airport with the lowest percentile, or null in a tie
+     * @param gapPercentilePoints the distance between the highest and the lowest percentile
+     */
+    public record KpiComparison(Kpi kpi, String highest, String lowest, double gapPercentilePoints, boolean tie) {}
 
     public record LongHaulView(AirportRef airport, int year, String table, int limitRequestedMiles, int limitUsedMiles,
                                boolean limitWasRounded, Double sharePassengerOnly, Double shareWithCargo,
@@ -68,7 +86,7 @@ public final class Views {
     /** The method of the app: weights, limits and scope. For questions about how the score works. */
     public record MethodologyView(Map<String, Map<String, Double>> weightProfiles, Map<String, Double> unmetDemandWeights,
                                   int dataYear, int rankedAirports, long minEnplanements, int defaultLongHaulMiles,
-                                  String scope, List<String> notes) {}
+                                  List<String> regions, String scope, List<String> notes) {}
 
     /** A possible match of a name to an airport. */
     public record Candidate(AirportRef airport, String matchedBy) {}

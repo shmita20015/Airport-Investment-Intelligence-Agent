@@ -35,17 +35,24 @@ public class AirportTools {
                     + "a state code such as TX, a comma list such as CA,OR,WA, or ALL for the whole country", required = false) String region,
             @ToolParam(description = "Weight profile: terminal (terminal expansion) or general", required = false) String profile,
             @ToolParam(description = "Number of airports, 1 to 50. Default 10", required = false) Integer topN,
+            @ToolParam(description = "Only for a what-if question: custom weights as component:weight, for example "
+                    + "scale:0 or congestion:0.5,growth:0.3. Components: congestion, growth, load_factor, terminal_strain, "
+                    + "long_haul, scale. The components that are not named share the rest. Leave empty for the normal profile.",
+                    required = false) String weights,
             ToolContext context) {
-        return run(context, "rankAirports", () -> service.rank(region, profile, topN));
+        return run(context, "rankAirports", () -> service.rank(region, profile, topN, weights));
     }
 
     @Tool(description = "Compare two to six airports. Use focus congestion to compare congestion. Use a profile name "
-            + "(terminal or general) to compare the score. Returns the KPIs and percentiles of each airport.")
+            + "(terminal or general) to compare the score. Returns the KPIs and percentiles of each airport. "
+            + "It also says which airport is higher (focusOrder and kpiComparisons). Use these fields. Do not decide it yourself.")
     public ApiResponse<?> compareAirports(
             @ToolParam(description = "Airport codes or names, for example LAX and Santa Ana") List<String> codes,
             @ToolParam(description = "congestion, terminal or general. Default congestion", required = false) String focus,
+            @ToolParam(description = "Only for a what-if question and only with the focus terminal or general: custom "
+                    + "weights as component:weight, for example scale:0", required = false) String weights,
             ToolContext context) {
-        return run(context, "compareAirports", () -> service.compare(codes, focus));
+        return run(context, "compareAirports", () -> service.compare(codes, focus, weights));
     }
 
     @Tool(description = "All KPIs, component values and the score of one airport, with the source and the data year of each KPI.")

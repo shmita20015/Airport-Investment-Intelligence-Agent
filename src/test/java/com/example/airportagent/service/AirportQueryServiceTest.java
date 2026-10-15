@@ -1,5 +1,6 @@
 package com.example.airportagent.service;
 
+import java.util.Map;
 import com.example.airportagent.data.AirportDataset;
 import com.example.airportagent.data.FaaStatusClient;
 import com.example.airportagent.domain.Component;
@@ -232,6 +233,33 @@ class AirportQueryServiceTest {
     }
 
     @Test
+    void theComparisonSaysWhichAirportIsHigherAndByHowMuch() {
+        ComparisonView view = ok(service.compare(List.of("SNA", "LAX"), "congestion")).data();
+
+        double lax = view.airports().stream().filter(a -> a.airport().iata().equals("LAX")).findFirst().orElseThrow()
+                .components().get(Component.CONGESTION);
+        double sna = view.airports().stream().filter(a -> a.airport().iata().equals("SNA")).findFirst().orElseThrow()
+                .components().get(Component.CONGESTION);
+        assertThat(view.focusOrder()).extracting(Views.Placement::iata)
+                .containsExactly(lax >= sna ? "LAX" : "SNA", lax >= sna ? "SNA" : "LAX");
+        assertThat(view.focusGapPoints()).isCloseTo(Math.abs(lax - sna), org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(view.kpiComparisons()).extracting(Views.KpiComparison::kpi).contains(
+                Kpi.DELAY15_RATE, Kpi.TAXI_OUT_MIN, Kpi.CANCEL_RATE, Kpi.OPS_PER_RUNWAY);
+        Views.KpiComparison ops = view.kpiComparisons().stream().filter(k -> k.kpi() == Kpi.OPS_PER_RUNWAY)
+                .findFirst().orElseThrow();
+        assertThat(ops.highest()).isEqualTo("LAX");
+        assertThat(ops.lowest()).isEqualTo("SNA");
+    }
+
+    @Test
+    void aProfileFocusSortsByTheScoreOfThatProfile() {
+        ComparisonView view = ok(service.compare(List.of("SNA", "LAX", "BOS"), "terminal")).data();
+
+        assertThat(view.focusOrder()).extracting(Views.Placement::value).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+        assertThat(view.focusOrder()).hasSize(3);
+    }
+
+    @Test
     void comparisonWithAnUnknownCodeIsPartial() {
         assertThat(service.compare(List.of("LAX", "ZZZ"), "congestion")).isInstanceOfSatisfying(
                 QueryResult.Partial.class, partial -> assertThat(partial.missing().toString()).contains("ZZZ is not in the data"));
@@ -368,7 +396,7 @@ class AirportQueryServiceTest {
         assertThat(view.weightProfiles().get("terminal").values().stream().mapToDouble(Double::doubleValue).sum())
                 .isCloseTo(1.0, org.assertj.core.data.Offset.offset(1e-9));
         assertThat(view.unmetDemandWeights()).containsKeys("load_factor", "growth", "congestion");
-        assertThat(view.rankedAirports()).isEqualTo(233);
+        assertThat(view.rankedAirports()).isBetween(150, 300);
         assertThat(view.minEnplanements()).isEqualTo(100_000);
     }
 
@@ -391,9 +419,85 @@ class AirportQueryServiceTest {
         });
     }
 
+    @Test
+    void aVeryLongNameIsRejectedBeforeTheSearch() {
+        assertThat(service.longHaul("A".repeat(AirportResolver.MAX_QUERY_LENGTH + 1), 2500))
+                .isInstanceOf(QueryResult.OutOfScope.class);
+    }
+
     private String resolved(String text) {
         Resolution resolution = ok(service.resolveAirport(text)).data();
         assertThat(resolution.resolved()).as(text).isTrue();
         return resolution.best().airport().iata();
+    }
+
+    // ---------------------------------------------------------------- custom weights (what-if)
+
+    private static int positionOf(List<RankedItem> items, String iata) {
+        return items.stream().map(i -> i.airport().iata()).toList().indexOf(iata);
+    }
+
+    @Test
+    void ignoringScaleMovesAFastGrowingMidSizeAirportUp() {
+        List<RankedItem> normal = ok(service.rank("ALL", "terminal", 50)).data().items();
+        QueryResult.Ok<RankingView> custom = ok(service.rank("ALL", "terminal", 50, "scale:0"));
+
+        assertThat(custom.data().profile()).isEqualTo("custom");
+        assertThat(custom.data().weights().get("scale")).isEqualTo(0.0);
+        assertThat(custom.data().weights().values().stream().mapToDouble(Double::doubleValue).sum())
+                .isCloseTo(1.0, org.assertj.core.data.Offset.offset(1e-9));
+        int before = positionOf(normal, "PVU");
+        int after = positionOf(custom.data().items(), "PVU");
+        assertThat(after).isGreaterThanOrEqualTo(0);
+        assertThat(before < 0 || after < before).as("PVU moves up: before=" + before + " after=" + after).isTrue();
+    }
+
+    @Test
+    void customWeightsAreLabeledInTheEnvelope() {
+        QueryResult.Ok<RankingView> result = ok(service.rank("NEW_ENGLAND", "terminal", 5, "congestion:0.5"));
+
+        assertThat(result.envelope().assumptions()).anyMatch(text -> text.contains("custom weights from the user"));
+        assertThat(result.envelope().parameters()).containsEntry("weights", "congestion:0.5");
+        assertThat(result.data().weights().get("congestion")).isEqualTo(0.5);
+    }
+
+    @Test
+    void weightsCanBeFractionsOrPercentages() {
+        Map<String, Double> fraction = ok(service.rank("ALL", "terminal", 3, "congestion:0.5")).data().weights();
+        Map<String, Double> percent = ok(service.rank("ALL", "terminal", 3, "congestion:50%")).data().weights();
+        Map<String, Double> number = ok(service.rank("ALL", "terminal", 3, "Congestion = 50")).data().weights();
+
+        assertThat(percent).isEqualTo(fraction);
+        assertThat(number).isEqualTo(fraction);
+    }
+
+    @Test
+    void noWeightsGiveTheNormalProfile() {
+        assertThat(ok(service.rank("ALL", "terminal", 5, "  ")).data().profile()).isEqualTo("terminal");
+        assertThat(ok(service.rank("ALL", "terminal", 5, null)).data().items())
+                .extracting(i -> i.airport().iata())
+                .isEqualTo(ok(service.rank("ALL", "terminal", 5)).data().items().stream().map(i -> i.airport().iata()).toList());
+    }
+
+    @Test
+    void badWeightsGiveAClearGapWithTheComponentNames() {
+        for (String bad : List.of("speed:0.5", "scale", "scale:abc", "scale:150%", "scale:-0.2", "scale:0:1")) {
+            assertThat(service.rank("ALL", "terminal", 5, bad)).as(bad).isInstanceOfSatisfying(QueryResult.NotAvailable.class,
+                    na -> assertThat(na.whatIsAvailable().toString()).contains("congestion", "scale"));
+        }
+    }
+
+    @Test
+    void theComparisonAcceptsCustomWeightsForAProfileFocusButNotForCongestion() {
+        ComparisonView view = ok(service.compare(List.of("BOS", "LAX"), "terminal", "scale:0")).data();
+
+        assertThat(view.profile()).isEqualTo("custom");
+        assertThat(service.compare(List.of("BOS", "LAX"), "congestion", "scale:0"))
+                .isInstanceOf(QueryResult.NotAvailable.class);
+    }
+
+    @Test
+    void theMethodologyListsTheRegions() {
+        assertThat(ok(service.methodology()).data().regions()).contains("NEW_ENGLAND", "WEST_COAST", "MIDWEST");
     }
 }

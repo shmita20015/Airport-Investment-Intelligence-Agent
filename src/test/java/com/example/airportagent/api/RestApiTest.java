@@ -18,7 +18,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -108,6 +107,20 @@ class RestApiTest {
 
         assertThat(body.path("data").path("resolved").asBoolean()).isTrue();
         assertThat(body.path("data").path("best").path("airport").path("iata").asString()).isEqualTo("SNA");
-        assertThat(List.of("LAX")).isNotEmpty();
+    }
+
+    @Test
+    void customWeightsAndTheMethodologyAreAvailableInTheApi() throws Exception {
+        JsonNode custom = json("/api/rank?profile=terminal&topN=3&weights=scale:0,congestion:0.5");
+        assertThat(custom.path("status").asString()).isEqualTo("OK");
+        assertThat(custom.path("data").path("profile").asString()).isEqualTo("custom");
+        assertThat(custom.path("data").path("weights").path("congestion").asDouble()).isEqualTo(0.5);
+
+        HttpResponse<String> bad = get("/api/rank?weights=speed:1");
+        assertThat(bad.statusCode()).isEqualTo(404);
+
+        JsonNode methodology = json("/api/methodology");
+        assertThat(methodology.path("data").path("regions").size()).isGreaterThan(10);
+        assertThat(methodology.path("data").path("weightProfiles").path("terminal").path("congestion").asDouble()).isEqualTo(0.25);
     }
 }

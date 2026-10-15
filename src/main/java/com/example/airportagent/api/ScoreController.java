@@ -33,14 +33,21 @@ public class ScoreController {
     @GetMapping("/rank")
     public ResponseEntity<?> rank(@RequestParam(required = false) String region,
                                   @RequestParam(required = false) String profile,
-                                  @RequestParam(required = false) Integer topN) {
-        return respond(service.rank(region, profile, topN));
+                                  @RequestParam(required = false) Integer topN,
+                                  @RequestParam(required = false) String weights) {
+        return respond(service.rank(region, profile, topN, weights));
     }
 
     @GetMapping("/compare")
     public ResponseEntity<?> compare(@RequestParam("codes") List<String> codes,
-                                     @RequestParam(required = false) String focus) {
-        return respond(service.compare(codes, focus));
+                                     @RequestParam(required = false) String focus,
+                                     @RequestParam(required = false) String weights) {
+        return respond(service.compare(codes, focus, weights));
+    }
+
+    @GetMapping("/methodology")
+    public ResponseEntity<?> methodology() {
+        return respond(service.methodology());
     }
 
     @GetMapping("/airport/{code}")
