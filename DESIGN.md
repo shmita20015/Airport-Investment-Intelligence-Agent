@@ -33,7 +33,7 @@ The LLM chooses tools and explains results. **Java code calculates every number.
 
 **Data:** BTS T-100 and On-Time Performance, FAA enplanements, OurAirports (saved as CSV files by `scripts/prepare_data.py`), and the live FAA status (not a score input). The scores are calculated at run time.
 
-**Data refresh:** the data are bulk files of public sources, not API calls. The only call at run time is the FAA status. An optional monthly job (`airport.refresh`, off by default) runs the script again and restarts the app with the new files. It has a simple retry (3 tries) and a basic check (the files can be read and the data are not empty). If a check fails, the app keeps the old data.
+**Data refresh:** the saved data are bulk files of public sources. They change rarely, so the app does not call an API for them. The FAA airport status changes in minutes, so the app calls the FAA API at run time. An optional monthly job (`airport.refresh`, off by default) runs the script again and restarts the app with the new files. It has a simple retry (3 tries) and a basic check (the files can be read and the data are not empty). If a check fails, the app keeps the old data.
 
 ## 3. Where AI is used (and where it is not)
 - **The LLM does:** read the question and the chat history, choose a tool and its inputs, and write the answer.
@@ -45,7 +45,7 @@ The LLM chooses tools and explains results. **Java code calculates every number.
 ## 4. Key design trade-offs
 | Decision | Why | Cost |
 |---|---|---|
-| **Saved data files, not live API calls.** A script downloads the public files one time. The app reads the CSV files at start-up. | The scores are repeatable. The app starts fast and needs no network. A reviewer can run it with no setup. | The data are as old as the last script run. An optional monthly job (`airport.refresh`) runs the script again. |
+| **Slow data are saved. Fast data are live.** Data that change rarely (traffic, delays, enplanements, airports) come from public files. A script downloads them, and the app reads the CSV files at start-up. Data that change in minutes (the FAA airport status) are a live API call, with a 30-second cache. | The scores are repeatable. The app starts fast and needs no network for the scores. A live call gives the current event and does not change a score. | The saved data are as old as the last script run. An optional monthly job (`airport.refresh`) runs the script again. The live status needs the FAA service. If it fails, the answer says so. |
 | **Save facts, calculate scores at run time.** The files hold sums, counts and rates. They do not hold scores. | A change of a weight or a size limit needs no new data run. The what-if sliders work with the same data. | The app calculates all scores at start-up. The whole app starts in about 2 seconds. |
 | **Data in memory, no database.** | About 500 rows. A database adds no value. | No query language. This design does not fit a large data set. |
 | **One engine for the chat, the REST API and the page.** | The three give the same numbers. A reviewer can check each chat number in the table. | One more layer. `AirportQueryService` is a large class. |
