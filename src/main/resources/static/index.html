@@ -73,18 +73,22 @@
 
 <div class="layout">
   <!-- ============================================================ scoring engine panel -->
-  <section aria-label="Scoring engine">
-    <h2>Scoring engine</h2>
-    <p class="small" style="margin:0">Rank airports with fixed rules. The chat uses the same engine, so the numbers match.</p>
+  <section aria-label="Airport ranking">
+    <h2>Airport ranking</h2>
 
     <div class="controls">
       <label class="field">Region<select id="region"></select></label>
-      <label class="field">Profile<select id="profile"></select></label>
+      <label class="field">Ranking goal<select id="profile"></select></label>
       <label class="field">Airports to show<select id="topn"><option>5</option><option selected>10</option><option>20</option></select></label>
+      <button type="button" id="filter" aria-expanded="false" aria-controls="weightsPanel" style="align-self:flex-end">Customise</button>
+    </div>
+    <div id="weightsPanel" hidden>
+      <h3 style="margin-top:8px">Weights <span id="weightMode" class="small"></span></h3>
+      <div class="weights" id="weights"></div>
+      <div style="margin-top:12px"><button type="button" id="reset">Reset weights</button></div>
     </div>
 
-    <h3>Ranking</h3>
-    <div class="small" id="rankInfo"></div>
+    <div style="margin-top:14px"></div>
     <div id="rankMessage" class="small warn"></div>
     <div style="overflow-x:auto">
       <table id="rank">
@@ -94,11 +98,6 @@
     </div>
     <p class="small">Click an airport to see why it has this score. Confidence shows how much data the score has.</p>
 
-    <details>
-      <summary>Change the weights (what-if)<span id="weightMode" class="small"></span></summary>
-      <div class="weights" id="weights"></div>
-      <div style="margin-top:12px"><button type="button" id="reset">Use the weights of the profile</button></div>
-    </details>
 
     <details open>
       <summary>Why this score<span id="detailTitle" class="small"></span></summary>
@@ -112,6 +111,7 @@
 
     <details>
       <summary>Sources, assumptions and uncertainty</summary>
+      <div id="rankInfo" class="small"></div>
       <div id="sources" class="small"></div>
     </details>
   </section>
@@ -139,6 +139,7 @@
     ["congestion", "Congestion"], ["growth", "Growth"], ["load_factor", "Load factor"],
     ["terminal_strain", "Terminal strain"], ["long_haul", "Long-haul"], ["scale", "Scale (size)"]
   ];
+  var GOALS = { terminal: "Terminal expansion", general: "General opportunity" };
   var state = { methodology: null, custom: false, selected: null, timer: null, requestId: 0 };
   var $ = function (id) { return document.getElementById(id); };
 
@@ -212,13 +213,18 @@
     region.value = "NEW_ENGLAND";
 
     var profile = $("profile");
-    Object.keys(state.methodology.weightProfiles).forEach(function (p) { profile.appendChild(new Option(p, p)); });
+    Object.keys(state.methodology.weightProfiles).forEach(function (p) { profile.appendChild(new Option(GOALS[p] || humanize(p), p)); });
     profile.value = "terminal";
 
     region.addEventListener("change", refresh);
     $("topn").addEventListener("change", refresh);
     profile.addEventListener("change", resetToProfile);
     $("reset").addEventListener("click", resetToProfile);
+    $("filter").addEventListener("click", function () {
+      var panel = $("weightsPanel");
+      panel.hidden = !panel.hidden;
+      $("filter").setAttribute("aria-expanded", String(!panel.hidden));
+    });
     resetToProfile();
   }
 
@@ -253,7 +259,7 @@
 
   function renderWeights(weights) {
     COMPONENTS.forEach(function (c) { $("o_" + c[0]).textContent = pct(weights[c[0]] || 0); });
-    $("weightMode").textContent = state.custom ? "Custom weights (the others share the rest)" : "Weights of the " + selectedProfile() + " profile";
+    $("weightMode").textContent = state.custom ? "Custom weights" : "Default weights for: " + (GOALS[selectedProfile()] || selectedProfile()).toLowerCase();
   }
 
   function renderRank(items, data) {
@@ -398,6 +404,17 @@
     return div;
   }
 
+  // The answers are in English. Set the language and choose an English voice, so that the voice of the browser (for example Hebrew) is not used.
+  function englishUtterance(text) {
+    var utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    var voices = window.speechSynthesis.getVoices();
+    var voice = voices.filter(function (v) { return v.lang === "en-US"; })[0]
+      || voices.filter(function (v) { return v.lang.indexOf("en") === 0; })[0];
+    if (voice) utterance.voice = voice;
+    return utterance;
+  }
+
   async function ask(question) {
     question = question.trim();
     if (!question) return;
@@ -413,12 +430,12 @@
       if (!res.ok) { add("bot", body.error || "The request failed.", null, true); return; }
       sessionId = body.sessionId;
       try { sessionStorage.setItem("sessionId", sessionId); } catch (e) { /* ignore */ }
-      var tools = body.toolsUsed && body.toolsUsed.length ? "Tools: " + body.toolsUsed.join(", ") : "No tool used";
-      var check = body.verified ? "Numbers checked against the tool results." : "The numbers could not be checked.";
-      add("bot", body.reply, tools + ". " + check, !body.verified);
+      var tools = body.toolsUsed && body.toolsUsed.length ? "Tools: " + body.toolsUsed.join(", ") + ". " : "";
+      var node = add("bot", body.reply, body.verified ? "Numbers checked" : "The numbers could not be checked.", !body.verified);
+      node.title = tools + (body.verified ? "Numbers checked against the tool results." : "");
       if (speak.checked && window.speechSynthesis) {
         window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(body.reply));
+        window.speechSynthesis.speak(englishUtterance(body.reply));
       }
     } catch (e) {
       waiting.remove();
@@ -437,17 +454,41 @@
     mic.title = "Voice input is not supported in this browser. Use Chrome or Edge.";
   } else {
     var recognition = new Recognition();
+    var SILENCE_MS = 2500;       // the question is sent after this time without new speech
+    var silenceTimer = null;
+    var sendWhenDone = false;
     recognition.lang = "en-US";
-    recognition.interimResults = false;
-    recognition.onresult = function (event) { ask(event.results[0][0].transcript); };
-    recognition.onend = function () { mic.classList.remove("listening"); };
-    recognition.onerror = function (event) {
+    recognition.continuous = true;      // do not stop at the first short pause
+    recognition.interimResults = true;  // show the words while the user speaks
+    recognition.onresult = function (event) {
+      var spoken = "";
+      for (var i = 0; i < event.results.length; i++) { spoken += event.results[i][0].transcript; }
+      input.value = spoken.trim();
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(function () { sendWhenDone = true; recognition.stop(); }, SILENCE_MS);
+    };
+    recognition.onend = function () {
+      clearTimeout(silenceTimer);
       mic.classList.remove("listening");
-      add("bot", "Voice input failed: " + event.error + ". You can type the question.", null, true);
+      mic.textContent = "Speak";
+      if (sendWhenDone && input.value.trim()) { ask(input.value); }
+      sendWhenDone = false;
+    };
+    recognition.onerror = function (event) {
+      clearTimeout(silenceTimer);
+      sendWhenDone = false;
+      mic.classList.remove("listening");
+      mic.textContent = "Speak";
+      if (event.error !== "no-speech" && event.error !== "aborted") {
+        add("bot", "Voice input failed: " + event.error + ". You can type the question.", null, true);
+      }
     };
     mic.addEventListener("click", function () {
-      if (mic.classList.contains("listening")) { recognition.stop(); return; }
+      if (mic.classList.contains("listening")) { sendWhenDone = true; recognition.stop(); return; }
+      input.value = "";
+      sendWhenDone = false;
       mic.classList.add("listening");
+      mic.textContent = "Stop";
       recognition.start();
     });
   }
