@@ -36,7 +36,7 @@ The LLM chooses tools and explains results. **Java code calculates every number.
 ## 3. Where AI is used (and where it is not)
 - **The LLM does:** read the question and the chat history, choose a tool and its inputs, and write the answer.
 - **The LLM does not:** calculate, rank, read data files or call public APIs.
-- **Tools:** 7 `@Tool` methods. Each calls one method of `AirportQueryService`. A turn may use 5 tool calls at most.
+- **Tools:** 8 `@Tool` methods. Each calls one method of `AirportQueryService`. A turn may use 5 tool calls at most.
 - **Number check:** `NumberCheck` looks for numbers in the answer that no tool result has. If it finds one, the agent asks again one time. Then it shows the raw tool results.
 - **Follow-ups:** the chat memory keeps 20 messages per session.
 

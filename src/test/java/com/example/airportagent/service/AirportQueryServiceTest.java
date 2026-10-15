@@ -16,6 +16,7 @@ import com.example.airportagent.service.Views.LongHaulView;
 import com.example.airportagent.service.Views.RankedItem;
 import com.example.airportagent.service.Views.RankingView;
 import com.example.airportagent.service.Views.Resolution;
+import com.example.airportagent.service.Views.TrafficVolumeView;
 import com.example.airportagent.service.Views.UnmetDemandView;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -305,6 +306,29 @@ class AirportQueryServiceTest {
         assertThat(view.table()).contains("domestic and international");
         assertThat(result.envelope().uncertainties()).anyMatch(text -> text.contains("Cargo flights are"));
         assertThat(result.envelope().uncertainties()).anyMatch(text -> text.contains("foreign airlines"));
+    }
+
+    // ---------------------------------------------------------------- traffic volume
+
+    /** Checks that the traffic volume of Boston gives the departures from the data and says that arrivals are not counted. */
+    @Test
+    void trafficVolumeOfBostonGivesDeparturesAndTheLimitsOfTheData() {
+        QueryResult.Ok<TrafficVolumeView> result = ok(service.trafficVolume("Boston"));
+
+        TrafficVolumeView view = result.data();
+        assertThat(view.airport().iata()).isEqualTo("BOS");
+        assertThat(view.passengerDepartures()).isEqualTo(171389.0);
+        assertThat(view.cargoDepartures()).isEqualTo(2803.0);
+        assertThat(view.enplanements()).isEqualTo(21021153L);
+        assertThat(view.reportedOnTimeFlights()).isEqualTo(142859L);
+        assertThat(result.envelope().assumptions()).anyMatch(text -> text.contains("Arrivals are not counted"));
+        assertThat(result.envelope().uncertainties()).anyMatch(text -> text.contains("foreign airlines"));
+    }
+
+    /** Checks that the traffic volume of an unknown airport is not available. */
+    @Test
+    void trafficVolumeOfAnUnknownAirportIsNotAvailable() {
+        assertThat(service.trafficVolume("Atlantis")).isNotInstanceOf(QueryResult.Ok.class);
     }
 
     /** Checks that long haul limit is rounded down and the answer says so. */

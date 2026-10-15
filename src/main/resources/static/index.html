@@ -5,98 +5,112 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Airport Investment Intelligence Agent</title>
 <style>
-  :root { --bg:#f4f6f8; --card:#fff; --text:#1b1f24; --muted:#5b6672; --accent:#0b5cad; --user:#e3effb; --warn:#8a5a00;
+  :root { --bg:#f4f6f8; --card:#fff; --text:#1b1f24; --muted:#4a5561; --accent:#0b5cad; --user:#e3effb; --warn:#8a5a00;
           --line:#d9dee4; --good:#1d7a46; --bar:#9cc3ec; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg:#14181d; --card:#1d232a; --text:#e8ecf0; --muted:#9aa6b2; --accent:#5aa9f0; --user:#21384f; --warn:#e0b050;
+    :root { --bg:#14181d; --card:#1d232a; --text:#e8ecf0; --muted:#b0bac4; --accent:#5aa9f0; --user:#21384f; --warn:#e0b050;
             --line:#323b45; --good:#58c98a; --bar:#2f5d8a; }
   }
   * { box-sizing: border-box; }
-  body { margin:0; font:15px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--text); }
-  header { padding:12px 16px 0; max-width:1400px; margin:0 auto; }
-  h1 { font-size:1.25rem; margin:0 0 2px; }
-  p.sub { margin:0; color:var(--muted); font-size:.85rem; }
-  .layout { max-width:1400px; margin:0 auto; padding:12px 16px 16px; display:grid; gap:16px;
+  body { margin:0; font:16px/1.55 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:20px 24px 0; max-width:1400px; margin:0 auto; }
+  h1 { font-size:1.4rem; margin:0 0 4px; }
+  p.sub { margin:0; color:var(--muted); font-size:.95rem; }
+  .layout { max-width:1400px; margin:0 auto; padding:18px 24px 24px; display:grid; gap:24px;
             grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); align-items:start; }
   @media (max-width: 960px) { .layout { grid-template-columns:minmax(0,1fr); } #chat { order:-1; position:static; max-height:none; } }
-  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; min-width:0; }
-  h2 { font-size:1rem; margin:0 0 8px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  h3 { font-size:.85rem; margin:12px 0 4px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
-  .badge { font-size:.7rem; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--user); color:var(--accent); }
-  .controls { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
-  label.field { display:flex; flex-direction:column; font-size:.75rem; color:var(--muted); gap:2px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; min-width:0; }
+  h2 { font-size:1.15rem; margin:0 0 6px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  h3 { font-size:1rem; margin:22px 0 6px; }
+  h3 .small { font-weight:400; }
+  .badge { font-size:.75rem; font-weight:600; padding:2px 8px; border-radius:10px; background:var(--user); color:var(--accent); }
+  .controls { display:flex; flex-wrap:wrap; gap:14px; margin:14px 0 4px; }
+  label.field { display:flex; flex-direction:column; font-size:.875rem; color:var(--muted); gap:4px; }
   select, input[type=text] { font:inherit; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); }
-  .weights { display:grid; grid-template-columns:auto 1fr auto; gap:4px 8px; align-items:center; font-size:.85rem; }
-  .weights output { min-width:5.5em; text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); }
+  .weights { display:grid; grid-template-columns:9em 1fr 3.5em; gap:10px 12px; align-items:center; margin-top:10px; }
+  .weights output { min-width:3em; text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); }
   input[type=range] { width:100%; accent-color:var(--accent); }
   button { font:inherit; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); padding:5px 10px; cursor:pointer; }
   button.main { background:var(--accent); border:0; color:#fff; padding:9px 14px; }
   button:disabled { opacity:.5; cursor:default; }
-  table { width:100%; border-collapse:collapse; font-size:.88rem; }
-  th, td { padding:5px 6px; text-align:left; border-bottom:1px solid var(--line); }
-  th { color:var(--muted); font-weight:600; font-size:.75rem; }
+  table { width:100%; border-collapse:collapse; font-size:.95rem; }
+  th, td { padding:8px 8px; text-align:left; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:600; font-size:.85rem; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
   tbody tr { cursor:pointer; }
   tbody tr:hover { background:var(--user); }
   tbody tr.selected { background:var(--user); font-weight:600; }
   .conf-HIGH { color:var(--good); } .conf-MEDIUM { color:var(--warn); } .conf-LOW { color:#b3261e; }
   .bar { display:inline-block; height:8px; background:var(--bar); border-radius:4px; vertical-align:middle; }
-  .small { font-size:.8rem; color:var(--muted); }
+  .small { font-size:.875rem; color:var(--muted); }
   .warn { color:var(--warn); }
-  .box { border:1px solid var(--line); border-radius:8px; padding:8px 10px; margin-top:6px; font-size:.85rem; }
-  ul.tight { margin:4px 0 0 18px; padding:0; }
-  details > summary { cursor:pointer; color:var(--muted); font-size:.85rem; margin-top:8px; }
+  ul.tight { margin:6px 0 0 20px; padding:0; }
+  ul.tight li { margin-bottom:4px; }
+  details { margin-top:22px; border-top:1px solid var(--line); padding-top:12px; }
+  details > summary { cursor:pointer; font-weight:600; font-size:1rem; }
+  details > summary .small { font-weight:400; margin-left:8px; }
+  details > div, details > .weights { margin-top:10px; }
   #chat { position:sticky; top:12px; display:flex; flex-direction:column; max-height:calc(100vh - 24px); }
-  #log { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:4px 0 8px; min-height:200px; }
-  .msg { padding:8px 12px; border-radius:12px; background:var(--bg); border:1px solid var(--line); white-space:pre-wrap; overflow-wrap:anywhere; }
+  #log { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; padding:8px 0 12px; min-height:260px; }
+  .msg { padding:10px 14px; border-radius:12px; background:var(--bg); border:1px solid var(--line); white-space:pre-wrap; overflow-wrap:anywhere; }
   .msg.user { background:var(--user); align-self:flex-end; max-width:88%; }
-  .meta { font-size:.75rem; color:var(--muted); margin-top:4px; }
+  .meta { font-size:.82rem; color:var(--muted); margin-top:4px; }
   .meta.warn { color:var(--warn); }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
-  .chips button { font-size:.78rem; border-radius:14px; padding:4px 9px; }
-  form { display:flex; gap:6px; padding-top:6px; }
+  .chips { display:flex; flex-direction:column; align-items:flex-start; gap:8px; margin-bottom:12px; }
+  .chips button { font-size:.9rem; border-radius:16px; padding:6px 12px; text-align:left; }
+  form { display:flex; gap:8px; padding-top:8px; }
   form input[type=text] { flex:1; min-width:0; }
   button.listening { outline:2px solid var(--accent); }
-  label.speak { display:flex; align-items:center; gap:6px; font-size:.8rem; color:var(--muted); margin-bottom:4px; }
+  label.speak { display:flex; align-items:center; gap:6px; font-size:.875rem; color:var(--muted); margin-bottom:4px; }
+  footer { max-width:1400px; margin:0 auto; padding:0 24px 24px; font-size:.875rem; color:var(--muted); }
 </style>
 </head>
 <body>
 <header>
   <h1>Airport Investment Intelligence Agent</h1>
-  <p class="sub">US commercial airports. All numbers come from the scoring engine (public BTS and FAA data), never from the LLM. The scores are screening indexes, not investment advice.</p>
+  <p class="sub">Find US airports where more capacity can pay off. Java code calculates every number from public data. The LLM only explains.</p>
 </header>
 
 <div class="layout">
   <!-- ============================================================ scoring engine panel -->
   <section aria-label="Scoring engine">
-    <h2>Scoring engine <span class="badge">no LLM</span> <span class="small">The chat tools use the same engine.</span></h2>
+    <h2>Scoring engine <span class="badge">no LLM</span></h2>
+    <p class="small" style="margin:0">Rank airports with fixed rules. The chat uses the same engine, so the numbers match.</p>
 
     <div class="controls">
       <label class="field">Region<select id="region"></select></label>
       <label class="field">Profile<select id="profile"></select></label>
-      <label class="field">Airports<select id="topn"><option>5</option><option selected>10</option><option>20</option></select></label>
+      <label class="field">Airports to show<select id="topn"><option>5</option><option selected>10</option><option>20</option></select></label>
     </div>
 
-    <h3>Weights <span id="weightMode" class="small"></span></h3>
-    <div class="weights" id="weights"></div>
-    <div style="margin-top:6px"><button type="button" id="reset">Use the weights of the profile</button></div>
-
-    <h3>Ranking <span id="rankInfo" class="small"></span></h3>
+    <h3>Ranking</h3>
+    <div class="small" id="rankInfo"></div>
     <div id="rankMessage" class="small warn"></div>
     <div style="overflow-x:auto">
       <table id="rank">
-        <thead><tr><th class="num">#</th><th>Airport</th><th class="num">Score</th><th>Confidence</th><th class="num">National rank</th></tr></thead>
+        <thead><tr><th class="num">#</th><th>Airport</th><th class="num">Score</th><th>Confidence</th><th class="num" title="Rank among all ranked US airports">US rank</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
+    <p class="small">Click an airport to see why it has this score. Confidence shows how much data the score has.</p>
 
-    <h3>Why this score <span id="detailTitle" class="small"></span></h3>
-    <div id="detail" class="small">Click an airport in the table.</div>
-
-    <h3>Live FAA status <span id="liveTitle" class="small"></span></h3>
-    <div id="live" class="small">Click an airport in the table.</div>
+    <details>
+      <summary>Change the weights (what-if)<span id="weightMode" class="small"></span></summary>
+      <div class="weights" id="weights"></div>
+      <div style="margin-top:12px"><button type="button" id="reset">Use the weights of the profile</button></div>
+    </details>
 
     <details open>
+      <summary>Why this score<span id="detailTitle" class="small"></span></summary>
+      <div id="detail" class="small">Click an airport in the table.</div>
+    </details>
+
+    <details open>
+      <summary>Live FAA status<span id="liveTitle" class="small"></span></summary>
+      <div id="live" class="small">Click an airport in the table.</div>
+    </details>
+
+    <details>
       <summary>Sources, assumptions and uncertainty</summary>
       <div id="sources" class="small"></div>
     </details>
@@ -105,16 +119,18 @@
   <!-- ============================================================ chat -->
   <section id="chat" aria-label="Chat">
     <h2>Chat <span class="badge">LLM explains, engine calculates</span></h2>
+    <h3 style="margin-top:14px">Example questions</h3>
     <div class="chips" id="chips"></div>
     <label class="speak"><input type="checkbox" id="speak"> Read the answers aloud</label>
     <div id="log" aria-live="polite"></div>
     <form id="form">
       <input type="text" id="text" placeholder="Ask a question about US airports" autocomplete="off" maxlength="1000">
-      <button type="button" id="mic" title="Speak your question" aria-label="Speak your question">Mic</button>
+      <button type="button" id="mic" title="Speak your question" aria-label="Speak your question">Speak</button>
       <button type="submit" class="main" id="send">Send</button>
     </form>
   </section>
 </div>
+<footer>The scores are screening indexes from public BTS and FAA data. They are not investment advice.</footer>
 
 <script>
 (function () {
@@ -236,8 +252,8 @@
   }
 
   function renderWeights(weights) {
-    COMPONENTS.forEach(function (c) { $("o_" + c[0]).textContent = pct(weights[c[0]] || 0) + " used"; });
-    $("weightMode").textContent = state.custom ? "custom weights (the others share the rest)" : "profile " + selectedProfile();
+    COMPONENTS.forEach(function (c) { $("o_" + c[0]).textContent = pct(weights[c[0]] || 0); });
+    $("weightMode").textContent = state.custom ? "Custom weights (the others share the rest)" : "Weights of the " + selectedProfile() + " profile";
   }
 
   function renderRank(items, data) {
@@ -250,7 +266,7 @@
       row.insertCell().textContent = item.rank;
       var cell = row.insertCell();
       cell.textContent = item.airport.iata + " ";
-      var name = el("span", item.airport.name + ", " + item.airport.state, "small");
+      var name = el("span", item.airport.city + ", " + item.airport.state, "small");
       cell.appendChild(name);
       row.insertCell().textContent = num(item.score.value);
       var conf = row.insertCell();
@@ -261,8 +277,8 @@
       row.cells[0].className = row.cells[2].className = row.cells[4].className = "num";
       row.addEventListener("click", function () { select(item.airport.iata, items); });
     });
-    $("rankInfo").textContent = data ? "(" + data.items.length + " of " + data.rankedSetSize + " ranked airports, size limit "
-      + Number(data.minEnplanements).toLocaleString("en-US") + " enplanements)" : "";
+    $("rankInfo").textContent = data ? "Top " + data.items.length + " of " + data.rankedSetSize + " ranked airports. An airport needs "
+      + Number(data.minEnplanements).toLocaleString("en-US") + " passengers a year to be ranked." : "";
   }
 
   function select(iata, items) {
@@ -279,14 +295,14 @@
     var box = $("detail");
     clear(box);
     if (!item) { box.textContent = "Click an airport in the table."; $("detailTitle").textContent = ""; return; }
-    $("detailTitle").textContent = item.airport.iata + " (" + item.airport.hubClass + " hub, " + item.airport.runwayCount + " runways)";
+    $("detailTitle").textContent = item.airport.iata + ": " + item.airport.name + " (" + item.airport.hubClass.toLowerCase() + " hub, " + item.airport.runwayCount + " runways)";
     var table = el("table");
     var head = table.createTHead().insertRow();
-    ["Component", "Value (0-100)", "Weight", "Points"].forEach(function (t, i) { var th = el("th", t); if (i) th.className = "num"; head.appendChild(th); });
+    ["Component", "Level (0-100)", "Weight", "Points"].forEach(function (t, i) { var th = el("th", t); if (i) th.className = "num"; head.appendChild(th); });
     var body = table.createTBody();
     item.score.contributions.forEach(function (c) {
       var row = body.insertRow();
-      var label = humanize(c.component) + (c.usesProxy ? " (proxy)" : "");
+      var label = humanize(c.component) + (c.usesProxy ? " *" : "");
       row.insertCell().textContent = label;
       var value = row.insertCell();
       value.className = "num";
@@ -299,8 +315,11 @@
       row.cells[2].className = row.cells[3].className = "num";
     });
     box.appendChild(table);
-    box.appendChild(el("div", "Score " + num(item.score.value) + " = the sum of the points. Coverage " + num(item.score.coverage, 2)
-      + " (" + item.score.confidence + " confidence)."));
+    if (item.score.contributions.some(function (c) { return c.usesProxy; })) {
+      box.appendChild(el("div", "* Indirect measure. There is no direct data, so the score uses a related value.", "small"));
+    }
+    box.appendChild(el("div", "Score " + num(item.score.value) + " is the sum of the points. Confidence: " + item.score.confidence.toLowerCase()
+      + " (the data cover " + pct(item.score.coverage) + " of the weight)."));
     if (item.score.missingKpis && item.score.missingKpis.length) {
       box.appendChild(el("div", "No data for: " + item.score.missingKpis.map(humanize).join(", ")
         + ". Missing values are removed, never scored as zero.", "warn"));
@@ -311,7 +330,7 @@
   async function loadLive(iata) {
     var box = $("live");
     clear(box);
-    $("liveTitle").textContent = iata ? "(" + iata + ")" : "";
+    $("liveTitle").textContent = iata || "";
     if (!iata) { box.textContent = "Click an airport in the table."; return; }
     box.textContent = "Loading...";
     var res;
@@ -332,7 +351,7 @@
       status.events.forEach(function (e) { list.appendChild(el("li", humanize(e.type) + ": " + e.reason + (e.details ? " (" + e.details + ")" : ""))); });
       box.appendChild(list);
     }
-    box.appendChild(el("div", "FAA update time: " + status.updateTime + ". It does not change any score."
+    box.appendChild(el("div", "FAA update time: " + status.updateTime + ". The live status does not change any score."
       + (status.restrictionNotices ? " " + status.restrictionNotices + " closure notice(s) only restrict some flights." : ""), "small"));
   }
 

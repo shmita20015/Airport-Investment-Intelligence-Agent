@@ -75,6 +75,18 @@ public final class Views {
                                double passengerDepartures, double cargoDepartures, double cargoShareOfDepartures) {}
 
     /**
+     * The traffic volume of one airport. A value is null if the data have no number for it.
+     *
+     * @param passengerDepartures  departures of passenger flights of US carriers (T-100)
+     * @param cargoDepartures      departures of cargo flights of US carriers (T-100)
+     * @param passengers           passengers on those departures (T-100)
+     * @param enplanements         boarding passengers of the year (FAA)
+     * @param reportedOnTimeFlights domestic flights of the large reporting carriers (BTS On-Time, both directions)
+     */
+    public record TrafficVolumeView(AirportRef airport, int year, Double passengerDepartures, Double cargoDepartures,
+                                    Double passengers, Long enplanements, Long reportedOnTimeFlights) {}
+
+    /**
      * @param index        the unmet demand index from 0 to 100
      * @param label        always PROXY
      * @param whyInPoints  the components in order of their points, as text

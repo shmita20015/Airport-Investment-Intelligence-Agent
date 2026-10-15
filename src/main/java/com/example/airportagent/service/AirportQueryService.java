@@ -4,6 +4,7 @@ import com.example.airportagent.config.ScoringProperties;
 import com.example.airportagent.data.AirportDataset;
 import com.example.airportagent.config.ExpertNotes;
 import com.example.airportagent.data.FaaStatusClient;
+import com.example.airportagent.data.Rows;
 import com.example.airportagent.domain.Airport;
 import com.example.airportagent.domain.AirportMetrics;
 import com.example.airportagent.domain.Component;
@@ -29,6 +30,7 @@ import com.example.airportagent.service.Views.MethodologyView;
 import com.example.airportagent.service.Views.RankedItem;
 import com.example.airportagent.service.Views.RankingView;
 import com.example.airportagent.service.Views.Resolution;
+import com.example.airportagent.service.Views.TrafficVolumeView;
 import com.example.airportagent.service.Views.UnmetDemandView;
 import org.springframework.stereotype.Service;
 
@@ -343,6 +345,35 @@ public class AirportQueryService {
                                 + properties.defaultLongHaulMiles() + " miles.",
                         "The share counts departures performed, weighted by distance bucket. A passenger flight is a T-100 row with seats."),
                 uncertainties, List.of());
+        return new QueryResult.Ok<>(view, envelope);
+    }
+
+    // ------------------------------------------------------------------ traffic volume
+
+    /** The number of flights and passengers of an airport, as the data give them. */
+    public QueryResult<TrafficVolumeView> trafficVolume(String code) {
+        return withAirport(code, airport -> trafficVolume(airport));
+    }
+
+    /** The traffic volume of an airport that is already resolved. */
+    private QueryResult<TrafficVolumeView> trafficVolume(Airport airport) {
+        Rows.TrafficRow traffic = data.traffic().get(airport.iata());
+        Rows.OntimeRow ontime = data.ontime().get(airport.iata());
+        Rows.EnplanementRow enplanements = data.enplanements().get(airport.iata());
+        if (traffic == null && ontime == null && enplanements == null) {
+            return new QueryResult.NotAvailable<>("The data have no traffic numbers for " + airport.iata() + ".", List.of());
+        }
+        TrafficVolumeView view = new TrafficVolumeView(AirportRef.of(airport), data.info().dataYear(),
+                traffic == null ? null : traffic.departuresPax(), traffic == null ? null : traffic.departuresCargo(),
+                traffic == null ? null : traffic.pax(),
+                enplanements != null && enplanements.cy25().isPresent() ? enplanements.cy25().getAsLong() : null,
+                ontime == null ? null : ontime.flights());
+        Envelope envelope = envelopes.build(null, Map.of("airport", airport.iata()), Confidence.MEDIUM,
+                List.of("Departures are flights that leave the airport. Arrivals are not counted. A simple estimate of all flights is "
+                        + "about 2 times the departures, if arrivals equal departures."),
+                List.of("Flights of foreign airlines are not in the T-100 data, so the real number of flights is higher.",
+                        "The On-Time number counts only domestic flights of large reporting carriers, in both directions."),
+                List.of());
         return new QueryResult.Ok<>(view, envelope);
     }
 

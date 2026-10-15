@@ -77,6 +77,15 @@ public class AirportTools {
         return run(context, "getLongHaulShare", () -> service.longHaul(airport, minMiles));
     }
 
+    /** Tool: the number of flights and passengers of one airport. */
+    @Tool(description = "How many flights and passengers an airport has. Returns the departures of passenger and cargo flights "
+            + "(US carriers, T-100), the passengers, the FAA enplanements and the On-Time flight count, for the data year.")
+    public ApiResponse<?> getTrafficVolume(
+            @ToolParam(description = "Airport code or name, for example BOS or its city name") String airport,
+            ToolContext context) {
+        return run(context, "getTrafficVolume", () -> service.trafficVolume(airport));
+    }
+
     /** Tool: the unmet demand index of one airport (a proxy), with its parts. */
     @Tool(description = "The unmet demand index of one airport. It is a PROXY built from load factor, growth and congestion. "
             + "No public data counts unserved flights. Returns the parts of the index, so you can explain why.")
